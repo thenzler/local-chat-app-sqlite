@@ -41,9 +41,20 @@ function log(level, ...args) {
   }
 }
 
-// Initialize Ollama client
+// Initialize Ollama client with additional options
 const ollama = new Ollama({
-  host: process.env.OLLAMA_HOST || 'http://localhost:11434'
+  host: process.env.OLLAMA_HOST || 'http://localhost:11434',
+  fetch: {
+    // Add custom headers
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    // Increase timeout
+    timeout: 60000, // 60 seconds
+    // Add additional options
+    keepalive: true,
+    credentials: 'omit'
+  }
 });
 
 // Initialize VectorDB
@@ -314,6 +325,7 @@ app.get('/health', (req, res) => {
 // Check if Ollama is running
 app.get('/api/check-ollama', async (req, res) => {
   try {
+    log('debug', 'Testing Ollama connection...'); 
     const models = await ollama.list();
     return res.json({
       status: 'ok',
@@ -321,10 +333,11 @@ app.get('/api/check-ollama', async (req, res) => {
       recommended: process.env.OLLAMA_MODEL || 'mistral'
     });
   } catch (error) {
+    log('error', 'Fehler bei der Verbindung zu Ollama:', error);
     return res.status(500).json({
       status: 'error',
       message: 'Ollama ist nicht erreichbar. Bitte stellen Sie sicher, dass Ollama läuft.',
-      details: error.message
+      details: error.message || 'fetch failed'
     });
   }
 });
