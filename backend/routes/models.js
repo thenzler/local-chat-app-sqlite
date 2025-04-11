@@ -3,9 +3,17 @@ const express = require('express');
 const { Ollama } = require('ollama');
 const router = express.Router();
 
-// Ollama-Client initialisieren
+// Ollama-Client initialisieren mit verbesserten Optionen
 const ollama = new Ollama({
-  host: process.env.OLLAMA_HOST || 'http://localhost:11434'
+  host: process.env.OLLAMA_HOST || 'http://localhost:11434',
+  fetch: {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: 60000,
+    keepalive: true,
+    credentials: 'omit'
+  }
 });
 
 // Logging-Funktion
