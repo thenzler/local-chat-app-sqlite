@@ -1,108 +1,103 @@
-# Local Chat App mit SQLite
+# Local Chat App with SQLite Vector Search
 
-Eine vollständig lokale Chat-Anwendung mit LLM und Vektorsuche, ohne Cloud-Abhängigkeiten oder API-Kosten, die SQLite anstelle von Qdrant verwendet.
+This application provides an interface for chatting with local language models via Ollama while using a SQLite-based vector database for document search and retrieval.
 
-## 🎯 Beschreibung
+## Features
 
-Diese Anwendung ist eine leistungsstarke, kostengünstige Alternative zu Cloud-basierten Chatbot-Lösungen wie Azure OpenAI. Sie bietet eine moderne, benutzerfreundliche Oberfläche für die Interaktion mit Ihren eigenen Dokumenten durch lokale Sprachmodelle (LLMs) und ermöglicht semantische Suche ohne Abhängigkeit von externen Diensten oder API-Kosten.
+- Chat with local LLMs via Ollama
+- Document management (upload, view, delete)
+- SQLite-based vector database for semantic search
+- Responsive interface for both desktop and mobile
+- Document indexing with embeddings support
 
-Im Vergleich zur ursprünglichen Local-Chat-App verwendet diese Version SQLite anstelle von Qdrant, was die Installation vereinfacht, da keine Docker-Installation erforderlich ist.
+## Installation
 
-## 📋 Features
+1. Clone the repository:
+```
+git clone https://github.com/thenzler/local-chat-app-sqlite.git
+cd local-chat-app-sqlite
+```
 
-- **Lokale Sprachmodelle**: Integration mit Ollama für vollständig lokale LLM-Ausführung
-- **Intelligente Modellverwaltung**: Automatische Hardwareerkennung und Modellempfehlungen
-- **Semantische Vektorsuche**: Leistungsstarke SQLite-Integration mit Vektoreinbettungen
-- **Online Dokumentenverwaltung**: Hochladen und Organisieren von Dokumenten direkt über die Benutzeroberfläche
-- **Dokumentenreferenzierung**: Indizierung von PDF-, Word- und Textdateien mit Quellenangaben
-- **Moderne Chat-UI**: Responsive Benutzeroberfläche mit Echtzeit-Interaktionen
-- **Automatische Quellenangaben**: Alle aus Dokumenten stammenden Informationen werden mit Quellen zitiert
-- **Fallback zu allgemeinem Wissen**: Kennzeichnung von Antworten aus dem Modellwissen vs. Dokumentenwissen
-- **Token-Limitierung**: Intelligente Verwaltung von Kontextgröße für optimale Leistung
-- **Keine Docker-Abhängigkeit**: Verwendet SQLite anstelle von Qdrant für die Vektordatenbank
-- **Verbesserter System-Prompt**: Optimierte Anweisungen für präzisere und informativere Antworten
+2. Install dependencies:
+```
+npm install
+```
 
-## 🤔 Warum Local Chat App mit SQLite?
+3. Make sure you have Ollama installed and running: 
+   [Ollama Installation Guide](https://github.com/ollama/ollama)
 
-### 💻 Einfachere Installation
-- **Keine Docker-Abhängigkeit**: Keine Notwendigkeit, Docker zu installieren und zu konfigurieren
-- **Alles in einem Paket**: SQLite ist in die Anwendung integriert, keine separaten Services
+4. Create a `.env` file in the root directory with the following content:
+```
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=mistral
+PORT=3000
+```
 
-### 💰 Kosteneinsparung
-- **Keine API-Kosten**: Azure OpenAI berechnet pro Token (Eingabe und Ausgabe)
-- **Keine Überraschungen**: Keine unerwarteten Rechnungen durch intensive Nutzung
+## Important: Fixing the "fetch is not a function" Error
 
-### 🛡️ Datenschutz und Kontrolle
-- **Daten bleiben lokal**: Alle Dokumente und Anfragen bleiben in Ihrer Kontrolle
-- **Keine Datenbereitstellung**: Ihre Unternehmensdaten werden nicht für AI-Training verwendet
+If you encounter the error `TypeError: fetch is not a function` when connecting to Ollama, use the fixed server implementation:
 
-### 🚀 Leistung und Anpassbarkeit
-- **Modellauswahl**: Flexibilität beim Wechsel zwischen verschiedenen Modellen
-- **Angepasste Systemanforderungen**: Auswahl von Modellen basierend auf Ihrer Hardware
-- **Vollständige Anpassungskontrolle**: Ändern Sie den Code nach Ihren Bedürfnissen
+1. The repository includes a custom Ollama client implementation (`backend/ollama-client.js`) that uses native fetch.
+2. Use `backend/server-fixed.js` instead of `server.js` to run the application:
 
-### 🔌 Offlinefähigkeit
-- **Keine Internetabhängigkeit**: Funktioniert vollständig ohne Internetverbindung
-- **Keine Ausfallzeiten**: Nicht betroffen von Cloud-Dienst-Unterbrechungen
+```bash
+# Instead of the default npm start
+node backend/server-fixed.js
+```
 
-## 📌 Neue Features in dieser Version
+Or update your package.json to use the fixed server:
+```json
+"scripts": {
+  "start": "node backend/server-fixed.js",
+  "index-docs": "node backend/document-indexer.js",
+  "dev": "nodemon backend/server-fixed.js"
+}
+```
 
-### 📁 Online Dokumentenverwaltung
-- **Web-Interface zum Hochladen**: Einfaches Hochladen von Dokumenten über die Weboberfläche
-- **Kategorisierung und Tagging**: Organisieren Sie Dokumente mit Kategorien und Tags
-- **Metadaten-Management**: Beschreibungen und Details zu Dokumenten hinzufügen
-- **Indexierungsstatus**: Überwachen Sie den Status der Dokumentindexierung
-- **Re-Indexierung**: Aktualisieren Sie Dokumente bei Bedarf
+## Usage
 
-### 🧠 Verbesserter System-Prompt
-- **Präzisere Anweisungen**: Optimierte Anweisungen für genauere Quellenangaben
-- **Informative Antworten**: Fokus auf klare und strukturierte Informationen
-- **Deutliche Kennzeichnung**: Klar erkennbare Unterscheidung zwischen Dokumentenwissen und allgemeinem Wissen
+1. Start the server:
+```
+npm start
+```
 
-## 🛠️ Technologie-Stack
+2. Open your browser and go to `http://localhost:3000`
 
-### Frontend
-- HTML5, CSS3 mit Custom Properties und responsivem Design
-- Vanilla JavaScript ohne externe Frameworks
+3. Upload documents through the interface and start chatting with your documents!
 
-### Backend
-- Node.js mit Express
-- Ollama für lokale LLM-Integration
-- SQLite für Vektordatenbank und Dokumentenverwaltung
-- Multer für Datei-Upload-Handling
-- Transformers.js für Einbettungen
+## Document Management
 
-## 🚀 Erste Schritte
+- Upload PDF, DOCX, and TXT files
+- View uploaded documents and their status
+- Delete documents when no longer needed
 
-Eine detaillierte Installations- und Benutzungsanleitung finden Sie in der [INSTALLATION.md](INSTALLATION.md).
+## Vector Search
 
-## 🧠 Wie funktioniert die SQLite Vektordatenbank?
+The application uses SQLite with a vector extension to store document embeddings and perform semantic search. This allows finding relevant documents based on meaning rather than just keywords.
 
-Diese Version der Local Chat App verwendet SQLite anstelle von Qdrant für die Speicherung und Suche von Vektoreinbettungen. Dies bietet mehrere Vorteile:
+## Configuration
 
-1. **Einfachere Installation**: Keine Docker-Installation erforderlich
-2. **Verringerte Systemanforderungen**: SQLite ist leichtgewichtiger als Qdrant
-3. **Integrierte Datenbank**: Die Datenbank ist direkt in die Anwendung eingebettet
+You can configure the application further by setting these environment variables:
 
-Die Vektorsuche wird durch eine Kombination aus effizienter Datenbankabfragen und Vektor-Ähnlichkeitsberechnungen in JavaScript implementiert. Obwohl diese Lösung möglicherweise nicht so performant wie Qdrant ist, bietet sie für die meisten Anwendungsfälle ausreichende Leistung und vereinfacht die Installation und Wartung erheblich.
+```
+# Ollama Configuration
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=mistral
 
-## 📊 Leistungsvergleich
+# Server Configuration
+PORT=3000
+LOG_LEVEL=info  # debug, info, warn, error
 
-| Funktion | SQLite-Version | Qdrant-Version | Azure OpenAI |
-|---|---|---|---|
-| Installation | Einfach, keine Docker-Abhängigkeit | Erfordert Docker | Cloud-Dienst |
-| Vektorsuche | Gut | Sehr gut | Sehr gut |
-| Dokumentenverwaltung | Web-Interface | Nur lokal | Web-Interface |
-| Kosten | Einmalige Hardware-Kosten | Einmalige Hardware-Kosten | Fortlaufende API-Kosten |
-| Latenz | Abhängig von lokaler Hardware | Abhängig von lokaler Hardware | Abhängig von Internetverbindung |
-| Datenschutz | 100% lokal | 100% lokal | Daten werden an Azure gesendet |
-| Anpassbarkeit | Vollständiger Code-Zugriff | Vollständiger Code-Zugriff | Begrenzt auf API-Parameter |
-| Offlinebetrieb | Vollständig offlinefähig | Vollständig offlinefähig | Erfordert Internetverbindung |
+# LLM Configuration
+TEMPERATURE=0.1
+MAX_TOKENS=4000
+SYSTEM_PROMPT=Your custom system prompt here
 
-## 🔧 Konfiguration
+# Vector Search Configuration
+USE_SEMANTIC_SEARCH=true
+VECTOR_SIMILARITY_THRESHOLD=0.2
+```
 
-Die Anwendung ist hochgradig konfigurierbar durch Umgebungsvariablen. Detaillierte Informationen finden Sie in der `.env.example`-Datei.
+## License
 
-## 📄 Lizenz
-
-Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die [LICENSE](LICENSE) Datei für Details.
+MIT
