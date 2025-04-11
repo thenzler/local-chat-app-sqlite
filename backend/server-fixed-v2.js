@@ -21,6 +21,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// Redirect root to fixed version
+app.get('/', (req, res) => {
+  res.redirect('/index-fixed.html');
+});
+
 // Enhanced logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
