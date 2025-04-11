@@ -50,8 +50,10 @@ npm start
 If you encounter issues with messages not displaying:
 
 1. Check the browser console (F12) for errors
-2. Use Alt+D to bring up the debug panel
-3. Click "Test Ollama" to check direct communication
+2. Use the **Debug Panel** button in the top-left corner of the screen
+   - Click the "Test Ollama" button to check direct communication
+   - Alt+D or D key also toggles the debug panel
+3. If Ollama is running but not responding, try restarting it
 
 ## Document Management
 
