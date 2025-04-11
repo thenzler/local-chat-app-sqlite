@@ -21,6 +21,26 @@ function debug(...args) {
     }
 }
 
+// Create debug panel immediately instead of at the end of the file
+const debugPanel = document.createElement('div');
+debugPanel.id = 'debug-panel';
+debugPanel.innerHTML = `
+    <button id="test-ollama">Test Ollama</button>
+    <button id="toggle-debug">Toggle Debug Mode</button>
+`;
+debugPanel.style.cssText = `
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    padding: 10px;
+    z-index: 1000;
+    display: none;
+    color: white;
+`;
+document.body.appendChild(debugPanel);
+
 // UI-Initialisierung
 document.addEventListener('DOMContentLoaded', () => {
     debug('DOM loaded, initializing UI');
@@ -64,7 +84,55 @@ document.addEventListener('DOMContentLoaded', () => {
     if (userInput.value.trim() !== '') {
         sendButton.disabled = false;
     }
+    
+    // Add event listeners for debug panel
+    document.getElementById('toggle-debug').addEventListener('click', () => {
+        debugMode = !debugMode;
+        debug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
+        addMessageToChat('system', `<p>Debug mode ${debugMode ? 'enabled' : 'disabled'}</p>`);
+    });
+
+    document.getElementById('test-ollama').addEventListener('click', testOllama);
+    
+    // Initialize the keyboard shortcut for debug panel
+    initDebugPanelShortcut();
 });
+
+/**
+ * Initialize keyboard shortcut for debug panel
+ */
+function initDebugPanelShortcut() {
+    // Show debug panel with Alt+D or just D key
+    window.addEventListener('keydown', (e) => {
+        if ((e.altKey && e.key === 'd') || (e.key === 'D')) {
+            console.log("Debug panel shortcut triggered");
+            debugPanel.style.display = debugPanel.style.display === 'block' ? 'none' : 'block';
+            
+            // Add a system message to confirm the debug panel is toggled
+            addMessageToChat('system', `<p>Debug panel ${debugPanel.style.display === 'block' ? 'shown' : 'hidden'}</p>`);
+        }
+    });
+    
+    // Also add a visible debug button to ensure it's accessible
+    const debugButton = document.createElement('button');
+    debugButton.textContent = "Debug Panel";
+    debugButton.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        padding: 5px 10px;
+        background: #666;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 999;
+    `;
+    debugButton.addEventListener('click', () => {
+        debugPanel.style.display = debugPanel.style.display === 'block' ? 'none' : 'block';
+    });
+    document.body.appendChild(debugButton);
+}
 
 /**
  * Passt die Höhe der Textarea automatisch an den Inhalt an
@@ -455,12 +523,8 @@ document.head.insertAdjacentHTML('beforeend', `
         opacity: 1;
     }
 }
-</style>
-`);
 
-// Add a test button in debug mode
-document.head.insertAdjacentHTML('beforeend', `
-<style>
+/* Debug panel styles */
 #debug-panel {
     position: fixed;
     bottom: 10px;
@@ -468,8 +532,8 @@ document.head.insertAdjacentHTML('beforeend', `
     background: rgba(0, 0, 0, 0.7);
     border-radius: 5px;
     padding: 10px;
-    display: none;
     z-index: 1000;
+    color: white;
 }
 
 #debug-panel button {
@@ -492,30 +556,5 @@ document.head.insertAdjacentHTML('beforeend', `
 }
 </style>
 `);
-
-// Create debug panel
-const debugPanel = document.createElement('div');
-debugPanel.id = 'debug-panel';
-debugPanel.innerHTML = `
-    <button id="test-ollama">Test Ollama</button>
-    <button id="toggle-debug">Toggle Debug Mode</button>
-`;
-document.body.appendChild(debugPanel);
-
-// Setup debug panel functionality
-document.getElementById('toggle-debug').addEventListener('click', () => {
-    debugMode = !debugMode;
-    debug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
-    addMessageToChat('system', `<p>Debug mode ${debugMode ? 'enabled' : 'disabled'}</p>`);
-});
-
-document.getElementById('test-ollama').addEventListener('click', testOllama);
-
-// Show debug panel with Alt+D
-document.addEventListener('keydown', (e) => {
-    if (e.altKey && e.key === 'd') {
-        debugPanel.style.display = debugPanel.style.display === 'block' ? 'none' : 'block';
-    }
-});
 
 debug('Frontend script loaded successfully');
