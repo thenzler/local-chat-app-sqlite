@@ -26,9 +26,31 @@ app.get('/', (req, res) => {
   res.redirect('/index-fixed.html');
 });
 
-// Enhanced logging middleware
+// Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  if (req.method === 'POST' && req.url === '/api/chat') {
+    console.log('Request body:', JSON.stringify(req.body));
+  }
+  
+  // Capture and log the response
+  const originalSend = res.send;
+  res.send = function(body) {
+    if (req.method === 'POST' && req.url === '/api/chat') {
+      try {
+        const responseObj = JSON.parse(body);
+        console.log('Response preview:', 
+          responseObj.reply ? responseObj.reply.substring(0, 100) + '...' : 'No reply',
+          'Sources:', responseObj.sources ? responseObj.sources.length : 0
+        );
+      } catch (e) {
+        console.log('Response couldn\'t be parsed as JSON');
+      }
+    }
+    originalSend.call(this, body);
+  };
+  
   next();
 });
 
@@ -59,25 +81,26 @@ vectorDB.initialize().catch(err => {
   log('error', 'Fehler bei der Initialisierung der VectorDB:', err);
 });
 
-// Enhanced System prompt for the LLM with improved structure
+// Enhanced System prompt with STRONGER emphasis on citations
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || `You are a precise research assistant who answers with accuracy and clarity.
 
-PRIORITY 1: For information found in the provided documents:
-- Use EXCLUSIVELY this documented information
-- For EVERY piece of information from the documents, you MUST immediately cite the exact source in parentheses
-- Format for document citations: (Source: Document name, Page X)
-- Be comprehensive and detailed when answering from documents
+PRIORITY INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY:
 
-PRIORITY 2: When no relevant information exists in the documents:
-- Clearly state: "I could not find specific information on this question in the available documents."
-- Then provide a general answer based on your knowledge, clearly marked with: "[General Knowledge]"
+1. You MUST cite sources for EVERY piece of information from the provided documents
+2. Format citations as (Source: Document name, Page X) immediately after EACH fact
+3. Never combine multiple facts without individual citations
+4. Always use information ONLY from the provided documents
+5. Always answer in complete sentences that provide context
+6. If you don't find relevant information in the documents, clearly state this
 
-Formatting instructions:
-1. Structure your answer in clear, logical paragraphs
-2. Place the most important information at the beginning
-3. For EVERY piece of document information, cite the source as (Source: Document name, Page X)
-4. Never merge information from different documents without clear source attribution
-5. Clearly separate documented information from general knowledge`;
+Example of correct citation format:
+"The company was founded in 1985 (Source: Company History, Page 3). Its first product was released in 1986 (Source: Company History, Page 4)."
+
+NEVER respond with generic phrases without citing a specific document source.
+
+If no relevant information exists in the documents:
+- State clearly: "I could not find specific information on this question in the available documents."
+- Then provide a general answer marked with: "[General Knowledge]"`;
 
 // API Routes
 app.use('/api/models', modelRoutes);
@@ -132,14 +155,16 @@ async function handleChatWithLocalLLM(message, conversationId, res) {
     if (documents.length === 0) {
       log('info', "Keine relevanten Dokumente gefunden");
       userPrompt = `
-To following question, no relevant information was found in the documents: "${message}"
+No relevant information was found in the documents for this question: "${message}"
 
 Please respond as follows:
 1. First mention that no specific information was found in the documents
 2. Then provide a general answer based on your knowledge, clearly marked with "[General Knowledge]:"`;
     } else {
       // Normal mit gefundenen Dokumenten fortfahren
-      userPrompt = `Answer the following question based on the given document excerpts. Use ONLY information from these excerpts and cite the source with document name and page number for each piece of information.
+      userPrompt = `Answer the following question based ONLY on the document excerpts provided below. 
+
+You MUST cite the source for EACH piece of information with the format (Source: Document name, Page X) immediately after the fact.
 
 Question: ${message}
 
@@ -332,6 +357,37 @@ app.get('/api/test-search', async (req, res) => {
   } catch (error) {
     console.error('Error testing search:', error);
     return res.status(500).json({ error: 'Error testing search', details: error.message });
+  }
+});
+
+// Raw chat API for direct testing without vector DB
+app.post('/api/direct-chat', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    const model = process.env.OLLAMA_MODEL || 'mistral';
+    log('info', `Direct chat request to Ollama with model ${model}`);
+    
+    const result = await ollama.chat({
+      model,
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      options: { temperature: 0.1 }
+    });
+    
+    return res.json({ 
+      reply: result.message.content,
+      model
+    });
+  } catch (error) {
+    log('error', 'Error in direct chat:', error);
+    return res.status(500).json({ 
+      error: error.message 
+    });
   }
 });
 
