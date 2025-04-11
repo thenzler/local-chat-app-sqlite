@@ -61,8 +61,13 @@ class OllamaClient {
       options
     };
 
+    // Fix: Return the response in the correct structure expected by the server code
     const response = await this._request('/api/chat', 'POST', requestBody);
-    return { message: response };
+    return { 
+      message: {
+        content: response.message.content 
+      }
+    };
   }
 
   /**
