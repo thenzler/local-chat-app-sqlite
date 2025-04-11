@@ -9,6 +9,7 @@ require('dotenv').config();
 // Import modules
 const vectorDB = require('./vector-db');
 const modelRoutes = require('./routes/models');
+const documentRoutes = require('./routes/documents');
 
 // Initialize Express app
 const app = express();
@@ -62,32 +63,35 @@ vectorDB.initialize().catch(err => {
   log('error', 'Fehler bei der Initialisierung der VectorDB:', err);
 });
 
-// System prompt for the LLM
-const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || `Du bist ein präziser Recherche-Assistent, der NUR auf Deutsch antwortet.
+// Enhanced System prompt for the LLM with improved structure
+const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || `You are a precise research assistant who answers with accuracy and clarity.
 
-PRIORITÄT 1: Wenn Informationen in den bereitgestellten Dokumenten verfügbar sind:
-- Verwende AUSSCHLIESSLICH diese dokumentierten Informationen
-- Bei JEDER Information aus den Dokumenten MUSST du die genaue Quelle in Klammern direkt dahinter angeben
-- Format für Dokumentquellen: (Quelle: Dokumentname, Seite X)
+PRIORITY 1: For information found in the provided documents:
+- Use EXCLUSIVELY this documented information
+- For EVERY piece of information from the documents, you MUST immediately cite the exact source in parentheses
+- Format for document citations: (Source: Document name, Page X)
+- Be comprehensive and detailed when answering from documents
 
-PRIORITÄT 2: Wenn keine relevanten Informationen in den Dokumenten zu finden sind:
-- Gib klar an: "In den verfügbaren Dokumenten konnte ich keine spezifischen Informationen zu dieser Frage finden."
-- Danach kannst du eine allgemeine Antwort basierend auf deinem eigenen Wissen geben, aber kennzeichne diese klar mit: "[Allgemeinwissen]"
+PRIORITY 2: When no relevant information exists in the documents:
+- Clearly state: "I could not find specific information on this question in the available documents."
+- Then provide a general answer based on your knowledge, clearly marked with: "[General Knowledge]"
 
-Formatierungsanweisungen:
-1. Gliedere deine Antwort in klare Absätze
-2. Stelle die wichtigsten Informationen an den Anfang
-3. Nenne bei JEDER Information aus Dokumenten die Quelle als (Quelle: Dokumentname, Seite X)
-4. Trenne dokumentierte Informationen klar von allgemeinem Wissen`;
+Formatting instructions:
+1. Structure your answer in clear, logical paragraphs
+2. Place the most important information at the beginning
+3. For EVERY piece of document information, cite the source as (Source: Document name, Page X)
+4. Never merge information from different documents without clear source attribution
+5. Clearly separate documented information from general knowledge`;
 
 // API Routes
 app.use('/api/models', modelRoutes);
+app.use('/api/documents', documentRoutes);
 
 // API endpoint to handle chat requests
 app.post('/api/chat', async (req, res) => {
   try {
     // Validate request body
-    const { message } = req.body;
+    const { message, conversationId } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
@@ -95,7 +99,7 @@ app.post('/api/chat', async (req, res) => {
     log('info', `Neue Benutzeranfrage: "${message}"`);
     
     try {
-      await handleChatWithLocalLLM(message, res);
+      await handleChatWithLocalLLM(message, conversationId, res);
     } catch (innerError) {
       log('error', 'Fehler bei der Verarbeitung der Anfrage:', innerError);
       throw innerError;
@@ -113,7 +117,7 @@ app.post('/api/chat', async (req, res) => {
 /**
  * Verarbeitet Chat-Anfragen mit einem lokalen LLM via Ollama
  */
-async function handleChatWithLocalLLM(message, res) {
+async function handleChatWithLocalLLM(message, conversationId, res) {
   try {
     log('debug', 'Starte Chat mit lokalem LLM (Ollama)');
     
@@ -126,18 +130,18 @@ async function handleChatWithLocalLLM(message, res) {
     if (documents.length === 0) {
       log('info', "Keine relevanten Dokumente gefunden");
       userPrompt = `
-Zu folgender Frage wurden keine relevanten Informationen in den Dokumenten gefunden: "${message}"
+To following question, no relevant information was found in the documents: "${message}"
 
-Bitte antworte wie folgt:
-1. Erwähne zuerst, dass keine spezifischen Informationen in den Dokumenten gefunden wurden
-2. Gib dann eine allgemeine Antwort basierend auf deinem Wissen, deutlich mit "[Allgemeinwissen]:" gekennzeichnet`;
+Please respond as follows:
+1. First mention that no specific information was found in the documents
+2. Then provide a general answer based on your knowledge, clearly marked with "[General Knowledge]:"`;
     } else {
       // Normal mit gefundenen Dokumenten fortfahren
-      userPrompt = `Beantworte folgende Frage basierend auf den gegebenen Dokumentausschnitten. Verwende NUR Informationen aus diesen Ausschnitten und gib für jede Information die Quelle mit Dokumentnamen und Seitenzahl an.
+      userPrompt = `Answer the following question based on the given document excerpts. Use ONLY information from these excerpts and cite the source with document name and page number for each piece of information.
 
-Frage: ${message}
+Question: ${message}
 
-Hier sind die relevanten Dokumentausschnitte:
+Here are the relevant document excerpts:
 
 ${contextText}`;
     }
@@ -184,7 +188,7 @@ ${contextText}`;
  */
 function extractSourcesFromText(text) {
   const sources = [];
-  const sourceRegex = /\(Quelle: ([^,]+), Seite (\d+)\)/g;
+  const sourceRegex = /\(Source: ([^,]+), Page (\d+)\)/g;
   let match;
   
   while ((match = sourceRegex.exec(text)) !== null) {
@@ -239,7 +243,7 @@ async function retrieveRelevantDocuments(query) {
     // Jeden gefundenen Treffer verarbeiten
     for (const result of searchResults.results) {
       const content = result.content || "";
-      const documentName = result.documentName || "Unbekanntes Dokument";
+      const documentName = result.documentName || "Unknown Document";
       const pageNumber = result.pageNumber || 1;
       
       // Token-Größe schätzen - ungefähr 4 Zeichen pro Token als grobe Schätzung
@@ -255,7 +259,7 @@ async function retrieveRelevantDocuments(query) {
       let processedContent = content;
       if (estimatedTokens > 2000) {
         const charLimit = 2000 * 4;
-        processedContent = content.substring(0, charLimit) + "... [Dokument gekürzt wegen Größe]";
+        processedContent = content.substring(0, charLimit) + "... [Document truncated due to size]";
         log('warn', `Großes Dokument gekürzt: ${documentName}`);
       }
       
@@ -266,10 +270,10 @@ async function retrieveRelevantDocuments(query) {
         score: result.score
       };
       
-      contextText += `Dokument: ${doc.documentName}\n`;
-      contextText += `Seite: ${doc.pageNumber}\n`;
-      contextText += `Relevanz: ${Math.round(doc.score * 100)}%\n`;
-      contextText += `Inhalt: ${doc.content}\n\n`;
+      contextText += `Document: ${doc.documentName}\n`;
+      contextText += `Page: ${doc.pageNumber}\n`;
+      contextText += `Relevance: ${Math.round(doc.score * 100)}%\n`;
+      contextText += `Content: ${doc.content}\n\n`;
       
       totalTokenCount += estimatedTokens;
       results.push(doc);
@@ -370,6 +374,7 @@ app.listen(PORT, () => {
   console.log(`Suchtest verfügbar unter http://localhost:${PORT}/api/test-search?q=ihre+suchanfrage`);
   console.log(`Modellprüfung verfügbar unter http://localhost:${PORT}/api/check-ollama`);
   console.log(`Vektordatenbank-Status verfügbar unter http://localhost:${PORT}/api/check-vectordb`);
+  console.log(`Dokumentenverwaltung verfügbar unter http://localhost:${PORT}/api/documents`);
 });
 
 // Cleanup-Handler für Programmbeendigung
