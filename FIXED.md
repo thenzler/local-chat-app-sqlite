@@ -15,17 +15,21 @@ The fix addresses this issue by:
 1. Creating a more robust Ollama client with better error handling
 2. Improving the response parsing mechanism to handle malformed JSON responses
 3. Adding fallback mechanisms to ensure the chat always returns a meaningful response
+4. Enhanced frontend with better error handling and debugging capabilities
 
 ## How to Use the Fixed Version
 
-The fixes have been implemented in two new files:
+The fixes have been implemented in multiple files:
 
-- `backend/ollama-client-fixed.js` - A more robust Ollama client
-- `backend/server-fixed-v2.js` - An updated server that uses the fixed client
+1. **Backend Fixes**:
+   - `backend/ollama-client-fixed.js` - A more robust Ollama client
+   - `backend/server-fixed-v2.js` - An updated server that uses the fixed client
 
-The `package.json` file has been updated to use the fixed server by default.
+2. **Frontend Fixes**:
+   - `frontend/scripts/main-fixed.js` - Improved frontend script with error handling
+   - `frontend/index-fixed.html` - Enhanced user interface with debugging features
 
-### Running the Fixed Version
+### Running the Backend Fixes
 
 Simply start the application as usual:
 
@@ -33,11 +37,47 @@ Simply start the application as usual:
 npm start
 ```
 
-This will use the fixed server version automatically. If you want to use the original version for any reason, you can run:
+This will use the fixed server version automatically. The `package.json` file has been updated to point to the improved server. If you want to use the original version for any reason, you can run:
 
 ```bash
 npm run start:legacy
 ```
+
+### Using the Fixed Frontend
+
+The frontend fixes are optional but provide additional debugging capabilities. You have two options:
+
+1. **Option 1**: Visit the fixed frontend directly by going to:
+   ```
+   http://localhost:3000/index-fixed.html
+   ```
+
+2. **Option 2**: Modify the server to serve the fixed frontend as the default:
+   - Edit `backend/server-fixed-v2.js` and locate the line:
+     ```javascript
+     app.use(express.static(path.join(__dirname, '../frontend')));
+     ```
+   - Add this function after that line:
+     ```javascript
+     // Redirect root to fixed version
+     app.get('/', (req, res) => {
+       res.redirect('/index-fixed.html');
+     });
+     ```
+
+## Frontend Debugging Features
+
+The fixed frontend version includes several debugging features:
+
+1. **Debug Mode**: Double-click on the header to enable/disable debug mode (logs will appear in the browser console)
+
+2. **Debug Panel**: Press `Alt+D` to show a debug panel with test options:
+   - **Test Ollama**: Sends a direct test request to Ollama
+   - **Toggle Debug Mode**: Enables/disables detailed logging
+
+3. **Improved Error Handling**: Better visualization of errors and response issues
+
+4. **Connection Check**: Automatically alerts you if the server is not reachable
 
 ## Key Improvements
 
@@ -49,27 +89,42 @@ npm run start:legacy
 
 4. **Debugging Endpoint**: A new `/api/test-ollama` endpoint has been added for directly testing the Ollama connection.
 
-## Testing the Fix
-
-To verify that the fix works:
-
-1. Start the application with `npm start`
-2. Open your browser to http://localhost:3000 (or your configured port)
-3. Try asking a question in the chat interface
-
-You should now receive proper responses from the model without the JSON parsing errors.
+5. **Frontend Improvements**: The fixed frontend version provides better error feedback and debugging capabilities.
 
 ## Troubleshooting
 
 If you still encounter issues:
 
-1. Make sure Ollama is running properly with `ollama list` in your terminal
-2. Check that the Mistral model is properly installed with `ollama pull mistral`
-3. Try the test endpoint with curl:
-   ```bash
-   curl -X POST http://localhost:3000/api/test-ollama -H "Content-Type: application/json" -d '{"prompt":"Hello, world!"}'
-   ```
-4. Check your server logs for any detailed error messages
+1. **Check your Ollama installation**:
+   - Make sure Ollama is running properly with `ollama list` in your terminal
+   - Check that the Mistral model is properly installed with `ollama pull mistral`
+   - Try restarting Ollama service
+
+2. **Test API endpoints directly**:
+   - Use the debug panel in the fixed frontend interface (Alt+D)
+   - Try testing Ollama with curl:
+     ```bash
+     curl -X POST http://localhost:3000/api/test-ollama -H "Content-Type: application/json" -d '{"prompt":"Hello, world!"}'
+     ```
+
+3. **Check server logs**:
+   - Look for detailed error messages in the terminal where the server is running
+   - Enable debug mode in the frontend to see more detailed logs
+
+4. **Network issues**:
+   - Make sure there's no firewall blocking the connection to Ollama (port 11434)
+   - Check that the OLLAMA_HOST in your .env file is correct
+
+5. **Clear browser cache**:
+   - Sometimes old JavaScript might be cached; try a hard refresh (Ctrl+F5)
+
+If none of these steps resolve the issue, try running the original implementation with:
+
+```bash
+npm run start:legacy
+```
+
+And compare the behavior to identify where the issue might be occurring.
 
 ## Technical Details of the Fix
 
@@ -81,4 +136,8 @@ The primary issue was that Ollama's response format was sometimes inconsistent o
 4. Falls back to using the raw text as the response content if all parsing attempts fail
 5. Always returns a properly structured response object with meaningful error messages
 
-This ensures that even if there are issues with the Ollama API response, the application will continue to function and provide feedback to the user rather than crashing.
+The frontend improvements focus on providing better feedback and debugging tools to help identify issues when they occur.
+
+## Contributing
+
+If you find additional issues or have improvements to suggest, please feel free to create a pull request or open an issue on the repository.
