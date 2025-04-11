@@ -29,6 +29,11 @@ class OllamaClient {
     }
 
     try {
+      console.log(`Making ${method} request to ${url}`);
+      if (body) {
+        console.log(`Request body: ${JSON.stringify(body)}`);
+      }
+      
       const response = await fetch(url, options);
       
       if (!response.ok) {
@@ -36,7 +41,9 @@ class OllamaClient {
         throw new Error(`Ollama API error (${response.status}): ${errorText}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      console.log(`Response received from ${url}: `, JSON.stringify(responseData).substring(0, 200) + '...');
+      return responseData;
     } catch (error) {
       console.error(`Error in Ollama request to ${url}:`, error);
       throw error;
@@ -61,13 +68,54 @@ class OllamaClient {
       options
     };
 
-    // Fix: Return the response in the correct structure expected by the server code
-    const response = await this._request('/api/chat', 'POST', requestBody);
-    return { 
-      message: {
-        content: response.message.content 
+    try {
+      // Log the request
+      console.log(`Chat request with model ${model}`);
+      console.log(`Messages: ${JSON.stringify(messages)}`);
+      
+      // Make the request
+      const response = await this._request('/api/chat', 'POST', requestBody);
+      console.log('Full Ollama API response:', JSON.stringify(response));
+      
+      // Extract content no matter what structure we get
+      let content = '';
+      
+      // Handle different response structures we might get
+      if (response.message && typeof response.message.content === 'string') {
+        // Direct content in message
+        content = response.message.content;
+      } else if (response.message && response.message.message && typeof response.message.message.content === 'string') {
+        // Nested content
+        content = response.message.message.content;
+      } else if (typeof response.content === 'string') {
+        // Top level content
+        content = response.content;
+      } else if (typeof response === 'string') {
+        // Response is directly a string
+        content = response;
+      } else {
+        // Last resort - convert whole response to string
+        content = JSON.stringify(response);
+        console.warn('Unable to extract content properly from Ollama response');
       }
-    };
+      
+      console.log(`Extracted content: ${content.substring(0, 100)}...`);
+      
+      // Return in expected structure
+      return {
+        message: {
+          content: content
+        }
+      };
+    } catch (error) {
+      console.error('Error in chat method:', error);
+      // Return a fallback error message in the expected format
+      return {
+        message: {
+          content: `Error communicating with Ollama: ${error.message}`
+        }
+      };
+    }
   }
 
   /**
