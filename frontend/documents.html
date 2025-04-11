@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dokumentenverwaltung - Local Chat App mit SQLite</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/documents.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="app-title">
+                <h1>Local Chat App</h1>
+                <span class="app-subtitle">Dokumentenverwaltung</span>
+            </div>
+            <div class="header-actions">
+                <a href="index.html" class="button">Zum Chat</a>
+            </div>
+        </header>
+
+        <main class="documents-container">
+            <div class="documents-panel">
+                <div class="documents-header">
+                    <h2>Dokumente</h2>
+                    <div class="documents-actions">
+                        <button id="upload-button" class="primary-button">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            Dokument hochladen
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="documents-filter">
+                    <div class="search-container">
+                        <input type="text" id="document-search" placeholder="Dokumente durchsuchen...">
+                        <button id="search-clear" class="clear-button" style="display: none;">×</button>
+                    </div>
+                    <div class="filter-container">
+                        <select id="category-filter">
+                            <option value="">Alle Kategorien</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="documents-list" id="documents-list">
+                    <div class="loading-placeholder">
+                        <div class="loading-spinner"></div>
+                        <span>Dokumente werden geladen...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="document-detail-panel" id="document-detail-panel">
+                <div class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <h3>Kein Dokument ausgewählt</h3>
+                    <p>Wählen Sie ein Dokument aus der Liste aus, um Details anzuzeigen.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Upload Modal -->
+    <div class="modal" id="upload-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Dokument hochladen</h3>
+                <button class="close-button" id="close-upload-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label for="document-file">Datei auswählen</label>
+                        <div class="file-input-container">
+                            <input type="file" id="document-file" accept=".pdf,.docx,.txt,.md,.html" required>
+                            <div class="file-preview" id="file-preview">
+                                <span>Keine Datei ausgewählt</span>
+                            </div>
+                        </div>
+                        <div class="file-restrictions">
+                            Unterstützte Formate: PDF, DOCX, TXT, MD, HTML (max. 50 MB)
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document-category">Kategorie</label>
+                        <div class="category-input-container">
+                            <select id="document-category">
+                                <option value="Uncategorized">Unkategorisiert</option>
+                            </select>
+                            <button type="button" id="add-category-button" class="secondary-button">Neue Kategorie</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document-tags">Tags (durch Komma getrennt)</label>
+                        <input type="text" id="document-tags" placeholder="z.B. wichtig, projekt, 2025">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document-description">Beschreibung (optional)</label>
+                        <textarea id="document-description" rows="3" placeholder="Geben Sie eine kurze Beschreibung des Dokuments ein..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="cancel-upload" class="secondary-button">Abbrechen</button>
+                        <button type="submit" id="submit-upload" class="primary-button">Hochladen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Category Modal -->
+    <div class="modal" id="category-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Neue Kategorie</h3>
+                <button class="close-button" id="close-category-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="category-form">
+                    <div class="form-group">
+                        <label for="category-name">Kategoriename</label>
+                        <input type="text" id="category-name" placeholder="Geben Sie einen Kategorienamen ein" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="cancel-category" class="secondary-button">Abbrechen</button>
+                        <button type="submit" id="submit-category" class="primary-button">Hinzufügen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="confirm-title">Bestätigen</h3>
+                <button class="close-button" id="close-confirm-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Sind Sie sicher?</p>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-confirm" class="secondary-button">Abbrechen</button>
+                    <button type="button" id="submit-confirm" class="danger-button">Bestätigen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-message">Vorgang wird ausgeführt...</div>
+    </div>
+
+    <script src="scripts/documents.js"></script>
+</body>
+</html>
