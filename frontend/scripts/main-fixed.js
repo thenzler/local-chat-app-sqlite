@@ -12,13 +12,11 @@ const vectordbStatus = document.getElementById('vectordb-status').querySelector(
 // State
 let lastSources = [];
 let isWaitingForResponse = false;
+let debugMode = false; // Set to true to enable debug logs
 
-// Debug flag
-const DEBUG = true;
-
-// Debug function
+// Simple debug logging function
 function debug(...args) {
-    if (DEBUG) {
+    if (debugMode) {
         console.log('[DEBUG]', ...args);
     }
 }
@@ -44,10 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Chatformular absenden
-    chatForm.addEventListener('submit', (e) => {
-        debug('Chat form submitted');
-        sendMessage(e);
-    });
+    chatForm.addEventListener('submit', sendMessage);
     
     // Quellen-Panel schließen
     closeSourcesBtn.addEventListener('click', toggleSourcesPanel);
@@ -55,6 +50,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Status-Checks
     checkOllamaStatus();
     checkVectorDBStatus();
+    
+    // Add a debug mode toggle - double click on the app header
+    document.querySelector('.app-header').addEventListener('dblclick', (e) => {
+        debugMode = !debugMode;
+        debug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
+        if (debugMode) {
+            addMessageToChat('system', '<p>Debug mode enabled. Check console for logs.</p>');
+        }
+    });
+    
+    // Enable submit button initially if there's content
+    if (userInput.value.trim() !== '') {
+        sendButton.disabled = false;
+    }
 });
 
 /**
@@ -72,13 +81,11 @@ async function sendMessage(e) {
     e.preventDefault();
     
     const message = userInput.value.trim();
-    if (message === '' || isWaitingForResponse) {
-        debug('Empty message or already waiting for response');
-        return;
-    }
+    if (message === '' || isWaitingForResponse) return;
+    
+    debug('Sending message:', message);
     
     // UI aktualisieren
-    debug('Adding user message to chat:', message);
     addMessageToChat('user', message);
     userInput.value = '';
     userInput.style.height = 'auto';
@@ -89,12 +96,12 @@ async function sendMessage(e) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     // Lade-Indikator hinzufügen
-    debug('Adding loading indicator');
     const loadingMessageEl = addMessageToChat('bot', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
     
     try {
+        debug('Sending API request to /api/chat');
+        
         // API-Anfrage
-        debug('Sending request to /api/chat');
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -104,29 +111,24 @@ async function sendMessage(e) {
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            debug('Server returned error:', response.status, errorText);
-            throw new Error(`Server returned ${response.status}: ${response.statusText}. ${errorText}`);
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
         }
         
-        debug('Parsing response');
         const data = await response.json();
-        debug('Response received:', data);
+        debug('Received response:', data);
         
         // Lade-Indikator entfernen
-        debug('Removing loading indicator');
-        try {
+        if (loadingMessageEl && loadingMessageEl.parentNode) {
             chatMessages.removeChild(loadingMessageEl);
-        } catch (err) {
-            console.error('Error removing loading indicator:', err);
+        }
+        
+        // Check if the response contains an actual reply
+        if (!data.reply) {
+            debug('No reply in response:', data);
+            throw new Error('Server response did not contain a reply');
         }
         
         // Bot-Antwort hinzufügen
-        if (!data || !data.reply) {
-            throw new Error('Invalid response from server: ' + JSON.stringify(data));
-        }
-        
-        debug('Adding bot response to chat');
         const botMessage = addMessageToChat('bot', formatBotResponse(data.reply));
         
         // Nachrichten-Container nach unten scrollen
@@ -135,6 +137,8 @@ async function sendMessage(e) {
         // Quellen verarbeiten
         lastSources = data.sources || [];
         if (lastSources.length > 0) {
+            debug('Found sources:', lastSources);
+            
             // Quellen-Button hinzufügen
             const messageActions = document.createElement('div');
             messageActions.className = 'message-actions';
@@ -161,12 +165,11 @@ async function sendMessage(e) {
             highlightSourcesInText(botMessage);
         }
     } catch (error) {
+        debug('Error during chat request:', error);
+        
         // Lade-Indikator entfernen
-        debug('Error occurred:', error);
-        try {
+        if (loadingMessageEl && loadingMessageEl.parentNode) {
             chatMessages.removeChild(loadingMessageEl);
-        } catch (err) {
-            console.error('Error removing loading indicator:', err);
         }
         
         // Fehlermeldung anzeigen
@@ -175,9 +178,13 @@ async function sendMessage(e) {
             <p><code>${error.message}</code></p>
             <p>Bitte versuchen Sie es später erneut oder prüfen Sie die Konsole für weitere Details.</p>
         `);
-        console.error('Error during chat request:', error);
+        
+        // Try to check connectivity to server
+        checkOllamaStatus();
+        checkVectorDBStatus();
     } finally {
         isWaitingForResponse = false;
+        // Re-enable the button in case the user wants to try again
         sendButton.disabled = false;
     }
 }
@@ -186,6 +193,8 @@ async function sendMessage(e) {
  * Fügt eine Nachricht zum Chat-Container hinzu
  */
 function addMessageToChat(sender, content) {
+    debug('Adding message to chat, sender:', sender);
+    
     const messageEl = document.createElement('div');
     messageEl.className = `message ${sender}`;
     
@@ -204,9 +213,11 @@ function addMessageToChat(sender, content) {
  */
 function formatBotResponse(text) {
     if (!text) {
-        debug('Warning: Empty text in formatBotResponse');
-        return '<p>Keine Antwort erhalten</p>';
+        debug('Warning: Trying to format empty bot response');
+        return '<p>Keine Antwort erhalten.</p>';
     }
+    
+    debug('Formatting bot response');
     
     // Links formatieren
     text = text.replace(
@@ -223,10 +234,12 @@ function formatBotResponse(text) {
  * Zeigt das Quellen-Panel mit den entsprechenden Quellen an
  */
 function showSources(sources) {
+    debug('Showing sources panel', sources);
+    
     // Quelleninhalt leeren
     sourcesContent.innerHTML = '';
     
-    if (sources.length === 0) {
+    if (!sources || sources.length === 0) {
         sourcesContent.innerHTML = '<p>Keine Quellen verfügbar.</p>';
     } else {
         // Quellen sortieren nach Dokumentnamen und Seitennummer
@@ -273,11 +286,19 @@ function highlightSourcesInText(messageElement) {
     const content = messageElement.querySelector('.message-content');
     if (!content) return;
     
+    // Support both German and English citation formats
+    const formats = [
+        { regex: 'Quelle', lang: 'de' },
+        { regex: 'Source', lang: 'en' }
+    ];
+    
     lastSources.forEach(source => {
-        const regex = new RegExp(`\\(Source: ${escapeRegExp(source.document)}, Page ${source.page}\\)`, 'g');
-        
-        content.innerHTML = content.innerHTML.replace(regex, (match) => {
-            return `<span class="source-highlight" data-document="${escapeHtml(source.document)}" data-page="${source.page}">${match}</span>`;
+        formats.forEach(format => {
+            const regex = new RegExp(`\\(${format.regex}: ${escapeRegExp(source.document)}, (Seite|Page) ${source.page}\\)`, 'g');
+            
+            content.innerHTML = content.innerHTML.replace(regex, (match) => {
+                return `<span class="source-highlight" data-document="${escapeHtml(source.document)}" data-page="${source.page}">${match}</span>`;
+            });
         });
     });
     
@@ -305,12 +326,10 @@ function highlightSourcesInText(messageElement) {
  */
 async function checkOllamaStatus() {
     try {
-        debug('Checking Ollama status');
         updateStatus(ollamaStatus, 'loading', 'Prüfe...');
         
         const response = await fetch('/api/check-ollama');
         const data = await response.json();
-        debug('Ollama status:', data);
         
         if (data.status === 'ok') {
             updateStatus(ollamaStatus, 'ok', `Bereit (${data.models.length} Modelle)`);
@@ -320,7 +339,6 @@ async function checkOllamaStatus() {
     } catch (error) {
         debug('Ollama status check failed:', error);
         updateStatus(ollamaStatus, 'error', 'Nicht erreichbar');
-        console.error('Ollama status check failed:', error);
     }
 }
 
@@ -329,12 +347,10 @@ async function checkOllamaStatus() {
  */
 async function checkVectorDBStatus() {
     try {
-        debug('Checking Vector DB status');
         updateStatus(vectordbStatus, 'loading', 'Prüfe...');
         
         const response = await fetch('/api/check-vectordb');
         const data = await response.json();
-        debug('Vector DB status:', data);
         
         if (data.status === 'ok') {
             updateStatus(vectordbStatus, 'ok', `${data.count} Dokumente`);
@@ -344,9 +360,8 @@ async function checkVectorDBStatus() {
             updateStatus(vectordbStatus, 'error', data.message || 'Fehler');
         }
     } catch (error) {
-        debug('Vector DB status check failed:', error);
+        debug('VectorDB status check failed:', error);
         updateStatus(vectordbStatus, 'error', 'Nicht erreichbar');
-        console.error('VectorDB status check failed:', error);
     }
 }
 
@@ -354,9 +369,34 @@ async function checkVectorDBStatus() {
  * Aktualisiert ein Status-Element
  */
 function updateStatus(element, status, text) {
-    debug(`Updating status: ${status} - ${text}`);
     element.setAttribute('data-status', status);
     element.querySelector('.status-text').textContent = text;
+}
+
+/**
+ * Direkt zum Testen des Ollama-Modells
+ */
+async function testOllama() {
+    try {
+        debug('Testing Ollama directly');
+        const response = await fetch('/api/test-ollama', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: 'Say hello in German' })
+        });
+        
+        const data = await response.json();
+        debug('Ollama test response:', data);
+        
+        if (data.success) {
+            addMessageToChat('system', `<p>Ollama test successful: "${data.response}"</p>`);
+        } else {
+            addMessageToChat('system', `<p>Ollama test failed: ${data.error}</p>`);
+        }
+    } catch (error) {
+        debug('Ollama test error:', error);
+        addMessageToChat('system', `<p>Ollama test error: ${error.message}</p>`);
+    }
 }
 
 /**
@@ -418,50 +458,64 @@ document.head.insertAdjacentHTML('beforeend', `
 </style>
 `);
 
-// Add a simple test button to the UI
-document.addEventListener('DOMContentLoaded', () => {
-    // Check if we should add the debug panel
-    if (DEBUG) {
-        const debugPanel = document.createElement('div');
-        debugPanel.style.position = 'fixed';
-        debugPanel.style.bottom = '10px';
-        debugPanel.style.right = '10px';
-        debugPanel.style.background = '#f0f0f0';
-        debugPanel.style.padding = '10px';
-        debugPanel.style.borderRadius = '5px';
-        debugPanel.style.boxShadow = '0 0 10px rgba(0,0,0,0.1)';
-        debugPanel.style.zIndex = '1000';
-        
-        const testButton = document.createElement('button');
-        testButton.textContent = 'Test API Directly';
-        testButton.onclick = async () => {
-            try {
-                debug('Testing API directly');
-                const testMessage = 'This is a test message from the debug panel';
-                
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: testMessage })
-                });
-                
-                const data = await response.json();
-                debug('Direct API test response:', data);
-                
-                if (data && data.reply) {
-                    alert('API Test Successful! Check console for details.');
-                } else {
-                    alert('API Response received but missing reply field. Check console.');
-                }
-            } catch (error) {
-                debug('API test error:', error);
-                alert(`API Test Error: ${error.message}`);
-            }
-        };
-        
-        debugPanel.appendChild(testButton);
-        document.body.appendChild(debugPanel);
+// Add a test button in debug mode
+document.head.insertAdjacentHTML('beforeend', `
+<style>
+#debug-panel {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 5px;
+    padding: 10px;
+    display: none;
+    z-index: 1000;
+}
+
+#debug-panel button {
+    margin: 5px;
+    padding: 5px 10px;
+    background: #555;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#debug-panel button:hover {
+    background: #777;
+}
+
+.message.system {
+    background-color: rgba(255, 255, 200, 0.2);
+    border-left: 3px solid #f5c842;
+}
+</style>
+`);
+
+// Create debug panel
+const debugPanel = document.createElement('div');
+debugPanel.id = 'debug-panel';
+debugPanel.innerHTML = `
+    <button id="test-ollama">Test Ollama</button>
+    <button id="toggle-debug">Toggle Debug Mode</button>
+`;
+document.body.appendChild(debugPanel);
+
+// Setup debug panel functionality
+document.getElementById('toggle-debug').addEventListener('click', () => {
+    debugMode = !debugMode;
+    debug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
+    addMessageToChat('system', `<p>Debug mode ${debugMode ? 'enabled' : 'disabled'}</p>`);
+});
+
+document.getElementById('test-ollama').addEventListener('click', testOllama);
+
+// Show debug panel with Alt+D
+document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.key === 'd') {
+        debugPanel.style.display = debugPanel.style.display === 'block' ? 'none' : 'block';
     }
 });
+
+debug('Frontend script loaded successfully');
