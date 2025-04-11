@@ -13,12 +13,14 @@ Im Vergleich zur ursprünglichen Local-Chat-App verwendet diese Version SQLite a
 - **Lokale Sprachmodelle**: Integration mit Ollama für vollständig lokale LLM-Ausführung
 - **Intelligente Modellverwaltung**: Automatische Hardwareerkennung und Modellempfehlungen
 - **Semantische Vektorsuche**: Leistungsstarke SQLite-Integration mit Vektoreinbettungen
+- **Online Dokumentenverwaltung**: Hochladen und Organisieren von Dokumenten direkt über die Benutzeroberfläche
 - **Dokumentenreferenzierung**: Indizierung von PDF-, Word- und Textdateien mit Quellenangaben
 - **Moderne Chat-UI**: Responsive Benutzeroberfläche mit Echtzeit-Interaktionen
 - **Automatische Quellenangaben**: Alle aus Dokumenten stammenden Informationen werden mit Quellen zitiert
 - **Fallback zu allgemeinem Wissen**: Kennzeichnung von Antworten aus dem Modellwissen vs. Dokumentenwissen
 - **Token-Limitierung**: Intelligente Verwaltung von Kontextgröße für optimale Leistung
 - **Keine Docker-Abhängigkeit**: Verwendet SQLite anstelle von Qdrant für die Vektordatenbank
+- **Verbesserter System-Prompt**: Optimierte Anweisungen für präzisere und informativere Antworten
 
 ## 🤔 Warum Local Chat App mit SQLite?
 
@@ -43,6 +45,20 @@ Im Vergleich zur ursprünglichen Local-Chat-App verwendet diese Version SQLite a
 - **Keine Internetabhängigkeit**: Funktioniert vollständig ohne Internetverbindung
 - **Keine Ausfallzeiten**: Nicht betroffen von Cloud-Dienst-Unterbrechungen
 
+## 📌 Neue Features in dieser Version
+
+### 📁 Online Dokumentenverwaltung
+- **Web-Interface zum Hochladen**: Einfaches Hochladen von Dokumenten über die Weboberfläche
+- **Kategorisierung und Tagging**: Organisieren Sie Dokumente mit Kategorien und Tags
+- **Metadaten-Management**: Beschreibungen und Details zu Dokumenten hinzufügen
+- **Indexierungsstatus**: Überwachen Sie den Status der Dokumentindexierung
+- **Re-Indexierung**: Aktualisieren Sie Dokumente bei Bedarf
+
+### 🧠 Verbesserter System-Prompt
+- **Präzisere Anweisungen**: Optimierte Anweisungen für genauere Quellenangaben
+- **Informative Antworten**: Fokus auf klare und strukturierte Informationen
+- **Deutliche Kennzeichnung**: Klar erkennbare Unterscheidung zwischen Dokumentenwissen und allgemeinem Wissen
+
 ## 🛠️ Technologie-Stack
 
 ### Frontend
@@ -52,7 +68,8 @@ Im Vergleich zur ursprünglichen Local-Chat-App verwendet diese Version SQLite a
 ### Backend
 - Node.js mit Express
 - Ollama für lokale LLM-Integration
-- SQLite für Vektordatenbank
+- SQLite für Vektordatenbank und Dokumentenverwaltung
+- Multer für Datei-Upload-Handling
 - Transformers.js für Einbettungen
 
 ## 🚀 Erste Schritte
@@ -75,6 +92,7 @@ Die Vektorsuche wird durch eine Kombination aus effizienter Datenbankabfragen un
 |---|---|---|---|
 | Installation | Einfach, keine Docker-Abhängigkeit | Erfordert Docker | Cloud-Dienst |
 | Vektorsuche | Gut | Sehr gut | Sehr gut |
+| Dokumentenverwaltung | Web-Interface | Nur lokal | Web-Interface |
 | Kosten | Einmalige Hardware-Kosten | Einmalige Hardware-Kosten | Fortlaufende API-Kosten |
 | Latenz | Abhängig von lokaler Hardware | Abhängig von lokaler Hardware | Abhängig von Internetverbindung |
 | Datenschutz | 100% lokal | 100% lokal | Daten werden an Azure gesendet |
