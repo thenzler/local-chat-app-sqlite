@@ -63,39 +63,12 @@ async function main() {
       log('info', `Verarbeite Dokument: ${doc.filename}`);
       
       try {
-        // Extrahiere Text aus Dokument
-        const text = await extractTextFromDocument(doc);
-        
-        if (!text || text.length === 0) {
-          log('warn', `Kein Text aus Dokument extrahiert: ${doc.filename}`);
-          errorCount++;
-          continue;
-        }
-        
-        log('info', `Text extrahiert (${text.length} Zeichen)`);
-        
-        // Teile Text in Chunks
-        const chunks = createOptimizedChunks(text);
-        log('info', `Text in ${chunks.length} Chunks aufgeteilt`);
-        
-        // Erstelle Dokumente für Vektordatenbank
-        const vectorDocuments = chunks.map((chunk, index) => ({
-          content: chunk,
-          metadata: {
-            documentName: doc.filename,
-            pageNumber: estimatePageNumber(index, chunks.length, doc.extension === '.pdf'),
-            path: doc.path
-          }
-        }));
-        
-        // Speichere Chunks in der Vektordatenbank
-        const result = await vectorDB.storeDocuments(vectorDocuments);
-        
+        const result = await indexSingleDocument(doc);
         if (result.success) {
-          log('info', `Dokument erfolgreich indexiert: ${doc.filename}`);
           indexedCount++;
+        } else if (result.skipped) {
+          skippedCount++;
         } else {
-          log('error', `Fehler beim Indexieren von Dokument ${doc.filename}: ${result.message}`);
           errorCount++;
         }
       } catch (docError) {
@@ -119,6 +92,71 @@ async function main() {
   } catch (error) {
     log('error', 'Fehler bei der Dokument-Indexierung:', error);
     process.exit(1);
+  }
+}
+
+// Index a single document
+async function indexSingleDocument(doc) {
+  try {
+    log('info', `Indexiere Dokument: ${doc.filename}`);
+    
+    // Check if vector database is initialized
+    if (!vectorDB.isInitialized()) {
+      await vectorDB.initialize();
+    }
+    
+    // Extract text from document
+    const text = await extractTextFromDocument(doc);
+    
+    if (!text || text.length === 0) {
+      log('warn', `Kein Text aus Dokument extrahiert: ${doc.filename}`);
+      return { 
+        success: false, 
+        skipped: false, 
+        message: 'No text could be extracted from document'
+      };
+    }
+    
+    log('info', `Text extrahiert (${text.length} Zeichen)`);
+    
+    // Split text into chunks
+    const chunks = createOptimizedChunks(text);
+    log('info', `Text in ${chunks.length} Chunks aufgeteilt`);
+    
+    // Create documents for vector database
+    const vectorDocuments = chunks.map((chunk, index) => ({
+      content: chunk,
+      metadata: {
+        documentName: doc.filename,
+        pageNumber: estimatePageNumber(index, chunks.length, doc.extension === '.pdf'),
+        path: doc.path
+      }
+    }));
+    
+    // Store chunks in vector database
+    const result = await vectorDB.storeDocuments(vectorDocuments);
+    
+    if (result.success) {
+      log('info', `Dokument erfolgreich indexiert: ${doc.filename}`);
+      return { 
+        success: true, 
+        message: `Successfully indexed ${chunks.length} chunks`
+      };
+    } else {
+      log('error', `Fehler beim Indexieren von Dokument ${doc.filename}: ${result.message}`);
+      return { 
+        success: false,
+        skipped: false,
+        message: result.message 
+      };
+    }
+  } catch (error) {
+    log('error', `Fehler beim Indexieren von Dokument ${doc.filename}:`, error);
+    return { 
+      success: false, 
+      skipped: false,
+      message: error.message 
+    };
   }
 }
 
@@ -260,6 +298,7 @@ if (require.main === module) {
 // Exportiere Funktionen für Tests und externe Verwendung
 module.exports = {
   indexDocuments: main,
+  indexSingleDocument,
   createOptimizedChunks,
   extractTextFromDocument
 };
