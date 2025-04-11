@@ -38,6 +38,8 @@
             background-color: #f9f9f9;
             min-height: 200px;
             white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 400px;
         }
         .status {
             display: inline-block;
@@ -81,6 +83,44 @@
             color: #333;
             font-weight: bold;
         }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background-color: #E3F2FD;
+            border-left: 3px solid #2196F3;
+            margin-left: 20px;
+        }
+        .bot-message {
+            background-color: #F5F5F5;
+            border-left: 3px solid #9E9E9E;
+            margin-right: 20px;
+        }
+        .debug-tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .debug-tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            background: #f5f5f5;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        .debug-tab.active {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -91,30 +131,64 @@
 
     <h1>Ollama Debug Console</h1>
     
-    <div class="test-group">
-        <h2>System Status</h2>
-        <button id="check-server">Check Server Status</button>
-        <button id="check-ollama">Check Ollama Connection</button>
-        <button id="check-vectordb">Check Vector Database</button>
-        <div id="status-output"></div>
+    <div class="debug-tabs">
+        <div class="debug-tab active" data-tab="status">System Status</div>
+        <div class="debug-tab" data-tab="direct-chat">Direct Chat</div>
+        <div class="debug-tab" data-tab="testing">Component Testing</div>
     </div>
-
-    <div class="test-group">
-        <h2>Direct Ollama Test</h2>
-        <textarea id="test-prompt" rows="3">Say hello in German.</textarea>
-        <button id="test-ollama">Test Ollama</button>
+    
+    <div id="status-tab" class="tab-content active">
+        <div class="test-group">
+            <h2>System Status</h2>
+            <button id="check-server">Check Server Status</button>
+            <button id="check-ollama">Check Ollama Connection</button>
+            <button id="check-vectordb">Check Vector Database</button>
+            <div id="status-output"></div>
+        </div>
     </div>
+    
+    <div id="direct-chat-tab" class="tab-content">
+        <div class="test-group">
+            <h2>Direct Chat with Ollama</h2>
+            <p>This bypasses the vector database and talks directly to the LLM. Use this to test if the model is working correctly.</p>
+            <div id="chat-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #ddd; padding: 10px;"></div>
+            <textarea id="direct-prompt" rows="3" placeholder="Enter your message here..."></textarea>
+            <button id="send-direct">Send Message</button>
+        </div>
+    </div>
+    
+    <div id="testing-tab" class="tab-content">
+        <div class="test-group">
+            <h2>Test Full Chat Flow</h2>
+            <p>This tests the complete chat flow including vector search.</p>
+            <textarea id="chat-prompt" rows="3" placeholder="Enter a question for the documents..."></textarea>
+            <button id="test-chat">Test Full Chat</button>
+        </div>
 
-    <div class="test-group">
-        <h2>Vector Search Test</h2>
-        <textarea id="search-query" rows="2">Test search query</textarea>
-        <button id="test-search">Test Search</button>
+        <div class="test-group">
+            <h2>Vector Search Test</h2>
+            <textarea id="search-query" rows="2" placeholder="Enter search query...">Test search query</textarea>
+            <button id="test-search">Test Search</button>
+        </div>
     </div>
 
     <h2>Output:</h2>
     <div id="output">Results will appear here...</div>
 
     <script>
+        // Tab switching
+        document.querySelectorAll('.debug-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update tab state
+                document.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(tab.getAttribute('data-tab') + '-tab').classList.add('active');
+            });
+        });
+    
         // Helper functions
         function updateOutput(content, clear = true) {
             const output = document.getElementById('output');
@@ -126,6 +200,8 @@
             } else {
                 output.innerHTML += content;
             }
+            // Scroll to bottom
+            output.scrollTop = output.scrollHeight;
         }
 
         function addStatus(status, message) {
@@ -134,6 +210,16 @@
             statusEl.className = `status ${status}`;
             statusEl.textContent = message;
             statusOutput.appendChild(statusEl);
+        }
+        
+        // Add message to chat container
+        function addChatMessage(role, content) {
+            const chatContainer = document.getElementById('chat-container');
+            const messageEl = document.createElement('div');
+            messageEl.className = `chat-message ${role === 'user' ? 'user-message' : 'bot-message'}`;
+            messageEl.innerHTML = content;
+            chatContainer.appendChild(messageEl);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
         // Test server status
@@ -199,18 +285,24 @@
             }
         });
 
-        // Test Ollama directly
-        document.getElementById('test-ollama').addEventListener('click', async () => {
+        // Direct chat with Ollama
+        document.getElementById('send-direct').addEventListener('click', async () => {
             try {
-                const prompt = document.getElementById('test-prompt').value.trim();
+                const prompt = document.getElementById('direct-prompt').value.trim();
                 if (!prompt) {
-                    updateOutput('Please enter a prompt first');
+                    updateOutput('Please enter a message first');
                     return;
                 }
                 
-                updateOutput('Sending test prompt to Ollama...');
+                // Add user message to chat
+                addChatMessage('user', prompt);
+                updateOutput('Sending message to Ollama...');
                 
-                const response = await fetch('/api/test-ollama', {
+                // Clear input
+                document.getElementById('direct-prompt').value = '';
+                
+                // Send to direct chat API
+                const response = await fetch('/api/direct-chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt })
@@ -218,17 +310,58 @@
                 
                 const data = await response.json();
                 
-                if (data.success) {
-                    updateOutput('<div class="status success">Test successful!</div>');
-                    updateOutput('<h3>Ollama Response:</h3>', false);
-                    updateOutput(`<div style="white-space: pre-wrap;">${data.response}</div>`, false);
+                if (data.reply) {
+                    // Add bot response to chat
+                    addChatMessage('bot', data.reply);
+                    updateOutput('Direct chat response received');
+                } else if (data.error) {
+                    addChatMessage('bot', `Error: ${data.error}`);
+                    updateOutput(`Error: ${data.error}`);
                 } else {
-                    updateOutput('<div class="status error">Test failed!</div>');
-                    updateOutput(`<p>Error: ${data.error}</p>`, false);
+                    addChatMessage('bot', 'No response received from the model');
+                    updateOutput('No response received from the model');
                 }
             } catch (error) {
-                updateOutput('<div class="status error">Test failed!</div>');
-                updateOutput(`<p>Error: ${error.message}</p>`, false);
+                addChatMessage('bot', `Error: ${error.message}`);
+                updateOutput(`Error: ${error.message}`);
+            }
+        });
+
+        // Test full chat flow with vector search
+        document.getElementById('test-chat').addEventListener('click', async () => {
+            try {
+                const message = document.getElementById('chat-prompt').value.trim();
+                if (!message) {
+                    updateOutput('Please enter a question first');
+                    return;
+                }
+                
+                updateOutput(`Testing full chat flow with: "${message}"`);
+                
+                // Send to regular chat API
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                
+                const data = await response.json();
+                
+                updateOutput('<h3>Chat Response:</h3>', false);
+                if (data.reply) {
+                    updateOutput(`<div style="white-space: pre-wrap;">${data.reply}</div>`, false);
+                    
+                    if (data.sources && data.sources.length > 0) {
+                        updateOutput('<h3>Sources:</h3>', false);
+                        updateOutput(data.sources, false);
+                    } else {
+                        updateOutput('<p>No sources found in the response.</p>', false);
+                    }
+                } else {
+                    updateOutput('<p>No reply received from the server.</p>', false);
+                }
+            } catch (error) {
+                updateOutput(`<p>Error testing chat flow: ${error.message}</p>`);
             }
         });
 
@@ -256,6 +389,22 @@
             } catch (error) {
                 updateOutput('<div class="status error">Search failed!</div>');
                 updateOutput(`<p>Error: ${error.message}</p>`, false);
+            }
+        });
+
+        // Add direct chat keyboard shortcut
+        document.getElementById('direct-prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('send-direct').click();
+            }
+        });
+
+        // Add full chat keyboard shortcut
+        document.getElementById('chat-prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('test-chat').click();
             }
         });
 
