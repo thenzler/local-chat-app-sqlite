@@ -1,5 +1,5 @@
 // Import required dependencies
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const { pipeline } = require('@xenova/transformers');
@@ -48,21 +48,35 @@ class VectorDatabase {
       }
       
       // Öffne die Datenbankverbindung
-      this.db = new Database(this.config.dbPath, { verbose: process.env.LOG_LEVEL === 'debug' ? console.log : null });
-      
-      // Optimiere die SQLite-Einstellungen für bessere Leistung
-      this.db.pragma(`cache_size = ${this.config.cacheSize}`);
-      this.db.pragma('journal_mode = WAL');
-      this.db.pragma('synchronous = NORMAL');
-      
-      // Erstelle die Tabelle, falls sie nicht existiert
-      await this.ensureTableExists();
-      
-      // Embedding-Pipeline initialisieren
-      await this.getEmbedder();
-      
-      this.log('info', 'VectorDB erfolgreich initialisiert');
-      return true;
+      return new Promise((resolve, reject) => {
+        this.db = new sqlite3.Database(this.config.dbPath, async (err) => {
+          if (err) {
+            this.log('error', 'Fehler beim Öffnen der Datenbank:', err);
+            reject(err);
+            return;
+          }
+          
+          // Optimiere die SQLite-Einstellungen für bessere Leistung
+          this.db.serialize(() => {
+            this.db.run(`PRAGMA cache_size = ${this.config.cacheSize};`);
+            this.db.run('PRAGMA journal_mode = WAL;');
+            this.db.run('PRAGMA synchronous = NORMAL;');
+            
+            // Erstelle die Tabelle, falls sie nicht existiert
+            this.ensureTableExists()
+              .then(async () => {
+                // Embedding-Pipeline initialisieren
+                await this.getEmbedder();
+                this.log('info', 'VectorDB erfolgreich initialisiert');
+                resolve(true);
+              })
+              .catch(error => {
+                this.log('error', 'Fehler beim Erstellen der Tabelle:', error);
+                reject(error);
+              });
+          });
+        });
+      });
     } catch (error) {
       this.log('error', 'Fehler bei der Initialisierung der VectorDB:', error);
       return false;
@@ -73,38 +87,52 @@ class VectorDatabase {
    * Stellt sicher, dass die SQLite-Tabelle existiert
    */
   async ensureTableExists() {
-    try {
-      // Erstelle die Haupttabelle für Dokumente und Vektoren
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS ${this.config.tableName} (
-          id TEXT PRIMARY KEY,
-          content TEXT NOT NULL,
-          document_name TEXT NOT NULL,
-          page_number INTEGER NOT NULL,
-          path TEXT,
-          vector BLOB NOT NULL,
-          timestamp TEXT NOT NULL
-        );
-      `);
-      
-      // Erstelle Index für Dokumentnamen für schnellere Suchvorgänge
-      this.db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_document_name 
-        ON ${this.config.tableName} (document_name);
-      `);
-      
-      // Erstelle Volltext-Index für Inhaltssuche
-      this.db.exec(`
-        CREATE VIRTUAL TABLE IF NOT EXISTS document_fts 
-        USING fts5(content, document_name);
-      `);
-      
-      this.log('info', `Tabelle ${this.config.tableName} und Indizes erfolgreich erstellt/überprüft`);
-      return true;
-    } catch (error) {
-      this.log('error', 'Fehler beim Erstellen der Tabelle:', error);
-      throw error;
-    }
+    return new Promise((resolve, reject) => {
+      this.db.serialize(() => {
+        // Erstelle die Haupttabelle für Dokumente und Vektoren
+        this.db.run(`
+          CREATE TABLE IF NOT EXISTS ${this.config.tableName} (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            document_name TEXT NOT NULL,
+            page_number INTEGER NOT NULL,
+            path TEXT,
+            vector BLOB NOT NULL,
+            timestamp TEXT NOT NULL
+          );
+        `, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          
+          // Erstelle Index für Dokumentnamen für schnellere Suchvorgänge
+          this.db.run(`
+            CREATE INDEX IF NOT EXISTS idx_document_name 
+            ON ${this.config.tableName} (document_name);
+          `, (err) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            
+            // Erstelle Volltext-Index für Inhaltssuche
+            this.db.run(`
+              CREATE VIRTUAL TABLE IF NOT EXISTS document_fts 
+              USING fts5(content, document_name);
+            `, (err) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+              
+              this.log('info', `Tabelle ${this.config.tableName} und Indizes erfolgreich erstellt/überprüft`);
+              resolve(true);
+            });
+          });
+        });
+      });
+    });
   }
 
   /**
@@ -181,98 +209,118 @@ class VectorDatabase {
    * @param {Array} documents - Array von Dokumentobjekten mit { content, metadata }
    */
   async storeDocuments(documents) {
-    try {
-      if (!documents || documents.length === 0) {
-        this.log('warn', 'Keine Dokumente zum Speichern angegeben');
-        return { success: false, message: 'Keine Dokumente zum Speichern angegeben' };
-      }
-      
-      this.log('info', `Speichere ${documents.length} Dokumente in Vektordatenbank...`);
-      
-      // Bereite Transaktion vor
-      const insertStmt = this.db.prepare(`
-        INSERT INTO ${this.config.tableName} 
-        (id, content, document_name, page_number, path, vector, timestamp) 
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-      `);
-      
-      const insertFtsStmt = this.db.prepare(`
-        INSERT INTO document_fts 
-        (content, document_name) 
-        VALUES (?, ?);
-      `);
-      
-      // Batch-Größe festlegen für effizientere Transaktionen
-      const batchSize = 50;
-      const batches = [];
-      
-      // Dokumente in Batches aufteilen
-      for (let i = 0; i < documents.length; i += batchSize) {
-        batches.push(documents.slice(i, i + batchSize));
-      }
-      
-      let totalStored = 0;
-      
-      // Jeden Batch verarbeiten
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        this.log('info', `Verarbeite Batch ${i+1}/${batches.length} (${batch.length} Dokumente)`);
-        
-        // Transaktion starten
-        const transaction = this.db.transaction((docs) => {
-          for (const doc of docs) {
-            // Erstelle Embedding für den Inhalt
-            const vector = this.serializeVector(doc.vector);
-            
-            // Erstelle eindeutige ID
-            const id = `doc_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-            
-            // Füge Dokument in Haupttabelle ein
-            insertStmt.run(
-              id,
-              doc.content,
-              doc.metadata.documentName || 'Unbekanntes Dokument',
-              doc.metadata.pageNumber || 1,
-              doc.metadata.path || null,
-              vector,
-              new Date().toISOString()
-            );
-            
-            // Füge Dokument in FTS-Tabelle ein
-            insertFtsStmt.run(
-              doc.content,
-              doc.metadata.documentName || 'Unbekanntes Dokument'
-            );
-          }
-        });
-        
-        // Transaktion ausführen
-        const docsWithVectors = [];
-        for (const doc of batch) {
-          // Erstelle Embedding für den Inhalt
-          const embedding = await this.createEmbedding(doc.content);
-          docsWithVectors.push({...doc, vector: embedding});
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!documents || documents.length === 0) {
+          this.log('warn', 'Keine Dokumente zum Speichern angegeben');
+          resolve({ success: false, message: 'Keine Dokumente zum Speichern angegeben' });
+          return;
         }
         
-        transaction(docsWithVectors);
+        this.log('info', `Speichere ${documents.length} Dokumente in Vektordatenbank...`);
         
-        totalStored += batch.length;
-        this.log('info', `${totalStored}/${documents.length} Dokumente gespeichert`);
+        // Batch-Größe festlegen für effizientere Transaktionen
+        const batchSize = 50;
+        const batches = [];
+        
+        // Dokumente in Batches aufteilen
+        for (let i = 0; i < documents.length; i += batchSize) {
+          batches.push(documents.slice(i, i + batchSize));
+        }
+        
+        let totalStored = 0;
+        
+        // Jeden Batch verarbeiten
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          this.log('info', `Verarbeite Batch ${i+1}/${batches.length} (${batch.length} Dokumente)`);
+          
+          // Verarbeite Dokumente
+          const docsWithVectors = [];
+          for (const doc of batch) {
+            // Erstelle Embedding für den Inhalt
+            const embedding = await this.createEmbedding(doc.content);
+            docsWithVectors.push({...doc, vector: embedding});
+          }
+          
+          // Transaktion starten
+          this.db.serialize(() => {
+            this.db.run('BEGIN TRANSACTION;');
+            
+            // Bereite Statements vor
+            const insertStmt = this.db.prepare(`
+              INSERT INTO ${this.config.tableName} 
+              (id, content, document_name, page_number, path, vector, timestamp) 
+              VALUES (?, ?, ?, ?, ?, ?, ?);
+            `);
+            
+            const insertFtsStmt = this.db.prepare(`
+              INSERT INTO document_fts 
+              (content, document_name) 
+              VALUES (?, ?);
+            `);
+            
+            // Füge jedes Dokument ein
+            for (const doc of docsWithVectors) {
+              // Erstelle eindeutige ID
+              const id = `doc_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+              const vector = this.serializeVector(doc.vector);
+              
+              insertStmt.run(
+                id,
+                doc.content,
+                doc.metadata.documentName || 'Unbekanntes Dokument',
+                doc.metadata.pageNumber || 1,
+                doc.metadata.path || null,
+                vector,
+                new Date().toISOString()
+              );
+              
+              insertFtsStmt.run(
+                doc.content,
+                doc.metadata.documentName || 'Unbekanntes Dokument'
+              );
+            }
+            
+            // Statements finalisieren
+            insertStmt.finalize();
+            insertFtsStmt.finalize();
+            
+            // Transaktion abschließen
+            this.db.run('COMMIT;', (err) => {
+              if (err) {
+                this.log('error', 'Fehler beim Speichern der Dokumente:', err);
+                reject({ 
+                  success: false, 
+                  message: `Fehler beim Speichern der Dokumente: ${err.message}`,
+                  error: err.message
+                });
+                return;
+              }
+              
+              totalStored += batch.length;
+              this.log('info', `${totalStored}/${documents.length} Dokumente gespeichert`);
+              
+              // Nach dem letzten Batch das Gesamtergebnis zurückgeben
+              if (i === batches.length - 1) {
+                resolve({ 
+                  success: true, 
+                  message: `${totalStored} Dokumente erfolgreich gespeichert`,
+                  stored: totalStored
+                });
+              }
+            });
+          });
+        }
+      } catch (error) {
+        this.log('error', 'Fehler beim Speichern der Dokumente:', error);
+        resolve({ 
+          success: false, 
+          message: `Fehler beim Speichern der Dokumente: ${error.message}`,
+          error: error.message
+        });
       }
-      
-      return { 
-        success: true, 
-        message: `${totalStored} Dokumente erfolgreich gespeichert`,
-        stored: totalStored
-      };
-    } catch (error) {
-      this.log('error', 'Fehler beim Speichern der Dokumente:', error);
-      return { 
-        success: false, 
-        message: `Fehler beim Speichern der Dokumente: ${error.message}`,
-        error: error.message
-      };
-    }
+    });
   }
 
   /**
@@ -281,172 +329,261 @@ class VectorDatabase {
    * @param {Object} options - Suchoptionen (limit, minScore, useSemanticSearch)
    */
   async search(query, options = {}) {
-    try {
-      const limit = options.limit || 10;
-      const minScore = options.minScore || this.config.similarityThreshold;
-      const useSemanticSearch = options.useSemanticSearch !== false;
-      
-      this.log('info', `Suche nach: "${query}" (Semantische Suche: ${useSemanticSearch ? 'ja' : 'nein'})`);
-      
-      let results = [];
-      
-      if (useSemanticSearch) {
-        // Semantische Suche: Embedding der Anfrage erstellen und nach Vektorähnlichkeit suchen
-        const queryEmbedding = await this.createEmbedding(query);
+    return new Promise(async (resolve, reject) => {
+      try {
+        const limit = options.limit || 10;
+        const minScore = options.minScore || this.config.similarityThreshold;
+        const useSemanticSearch = options.useSemanticSearch !== false;
         
-        // Hole alle Dokumente aus der Datenbank
-        const rows = this.db.prepare(`
-          SELECT id, content, document_name, page_number, vector 
-          FROM ${this.config.tableName};
-        `).all();
+        this.log('info', `Suche nach: "${query}" (Semantische Suche: ${useSemanticSearch ? 'ja' : 'nein'})`);
         
-        // Berechne Ähnlichkeiten
-        const scoredRows = rows.map(row => {
-          const vector = this.deserializeVector(row.vector);
-          const score = this.cosineSimilarity(queryEmbedding, vector);
-          return {...row, score};
-        });
-        
-        // Filtere basierend auf Schwellenwert und sortiere nach Ähnlichkeit
-        results = scoredRows
-          .filter(row => row.score >= minScore)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, limit);
-      } else {
-        // Keyword-basierte Suche mit FTS
-        // Bereite Suchbegriffe vor
-        const searchTerms = query.split(/\s+/)
-          .filter(term => term.length > 2)
-          .map(term => term + '*')  // Wildcard-Suche aktivieren
-          .join(' ');
-        
-        if (!searchTerms) {
-          this.log('warn', 'Keine gültigen Schlüsselwörter in der Anfrage');
-          return { results: [], count: 0 };
-        }
-        
-        // Führe FTS-Suche durch
-        const ftsRows = this.db.prepare(`
-          SELECT document_name, content, rank
-          FROM document_fts
-          WHERE document_fts MATCH ?
-          ORDER BY rank
-          LIMIT ?;
-        `).all(searchTerms, limit);
-        
-        // Hole vollständige Dokumente basierend auf FTS-Ergebnissen
-        for (const ftsRow of ftsRows) {
-          const rows = this.db.prepare(`
-            SELECT id, content, document_name, page_number
-            FROM ${this.config.tableName}
-            WHERE document_name = ? AND content = ?
-            LIMIT 1;
-          `).all(ftsRow.document_name, ftsRow.content);
+        if (useSemanticSearch) {
+          // Semantische Suche: Embedding der Anfrage erstellen und nach Vektorähnlichkeit suchen
+          const queryEmbedding = await this.createEmbedding(query);
           
-          if (rows.length > 0) {
-            results.push({
-              ...rows[0],
-              score: 1.0 - (ftsRow.rank / 1000)  // Umwandlung des FTS-Ranks in einen normalisierteren Score
+          // Hole alle Dokumente aus der Datenbank
+          this.db.all(`
+            SELECT id, content, document_name, page_number, vector 
+            FROM ${this.config.tableName};
+          `, async (err, rows) => {
+            if (err) {
+              this.log('error', 'Fehler bei der Suche:', err);
+              reject(err);
+              return;
+            }
+            
+            // Berechne Ähnlichkeiten
+            const scoredRows = rows.map(row => {
+              const vector = this.deserializeVector(row.vector);
+              const score = this.cosineSimilarity(queryEmbedding, vector);
+              return {...row, score};
             });
+            
+            // Filtere basierend auf Schwellenwert und sortiere nach Ähnlichkeit
+            const results = scoredRows
+              .filter(row => row.score >= minScore)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, limit);
+            
+            // Formatiere Ergebnisse
+            const formattedResults = results.map(result => ({
+              content: result.content,
+              documentName: result.document_name,
+              pageNumber: result.page_number,
+              score: result.score
+            }));
+            
+            this.log('info', `${formattedResults.length} Suchergebnisse gefunden`);
+            
+            resolve({
+              results: formattedResults,
+              count: formattedResults.length
+            });
+          });
+        } else {
+          // Keyword-basierte Suche mit FTS
+          // Bereite Suchbegriffe vor
+          const searchTerms = query.split(/\s+/)
+            .filter(term => term.length > 2)
+            .map(term => term + '*')  // Wildcard-Suche aktivieren
+            .join(' ');
+          
+          if (!searchTerms) {
+            this.log('warn', 'Keine gültigen Schlüsselwörter in der Anfrage');
+            resolve({ results: [], count: 0 });
+            return;
           }
+          
+          // Führe FTS-Suche durch
+          this.db.all(`
+            SELECT document_name, content, rank
+            FROM document_fts
+            WHERE document_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?;
+          `, [searchTerms, limit], (err, ftsRows) => {
+            if (err) {
+              this.log('error', 'Fehler bei der Suche:', err);
+              reject(err);
+              return;
+            }
+            
+            // Hole vollständige Dokumente basierend auf FTS-Ergebnissen
+            let results = [];
+            let processed = 0;
+            
+            if (ftsRows.length === 0) {
+              resolve({ results: [], count: 0 });
+              return;
+            }
+            
+            for (const ftsRow of ftsRows) {
+              this.db.all(`
+                SELECT id, content, document_name, page_number
+                FROM ${this.config.tableName}
+                WHERE document_name = ? AND content = ?
+                LIMIT 1;
+              `, [ftsRow.document_name, ftsRow.content], (err, rows) => {
+                processed++;
+                
+                if (err) {
+                  this.log('error', 'Fehler bei der Dokumentenabfrage:', err);
+                } else if (rows.length > 0) {
+                  results.push({
+                    ...rows[0],
+                    score: 1.0 - (ftsRow.rank / 1000)  // Umwandlung des FTS-Ranks in einen normalisierteren Score
+                  });
+                }
+                
+                if (processed === ftsRows.length) {
+                  // Formatiere Ergebnisse
+                  const formattedResults = results.map(result => ({
+                    content: result.content,
+                    documentName: result.document_name,
+                    pageNumber: result.page_number,
+                    score: result.score
+                  }));
+                  
+                  this.log('info', `${formattedResults.length} Keyword-Suchergebnisse gefunden`);
+                  
+                  resolve({
+                    results: formattedResults,
+                    count: formattedResults.length
+                  });
+                }
+              });
+            }
+          });
         }
+      } catch (error) {
+        this.log('error', 'Fehler bei der Suche:', error);
+        reject(error);
       }
-      
-      // Formatiere Ergebnisse
-      const formattedResults = results.map(result => ({
-        content: result.content,
-        documentName: result.document_name,
-        pageNumber: result.page_number,
-        score: result.score
-      }));
-      
-      this.log('info', `${formattedResults.length} Suchergebnisse gefunden`);
-      
-      return {
-        results: formattedResults,
-        count: formattedResults.length
-      };
-    } catch (error) {
-      this.log('error', 'Fehler bei der Suche:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Löscht alle Dokumente und setzt die Datenbank zurück
    */
   async resetCollection() {
-    try {
-      this.log('info', `Setze Datenbank zurück...`);
-      
-      // Lösche alle Einträge aus den Tabellen
-      this.db.exec(`DELETE FROM ${this.config.tableName};`);
-      this.db.exec(`DELETE FROM document_fts;`);
-      
-      // SQLite-Optimierungen
-      this.db.exec('VACUUM;');  // Datenbankdatei komprimieren
-      
-      return {
-        success: true,
-        message: `Datenbank erfolgreich zurückgesetzt`
-      };
-    } catch (error) {
-      this.log('error', 'Fehler beim Zurücksetzen der Datenbank:', error);
-      return {
-        success: false,
-        message: `Fehler beim Zurücksetzen der Datenbank: ${error.message}`,
-        error: error.message
-      };
-    }
+    return new Promise((resolve, reject) => {
+      try {
+        this.log('info', `Setze Datenbank zurück...`);
+        
+        this.db.serialize(() => {
+          // Lösche alle Einträge aus den Tabellen
+          this.db.run(`DELETE FROM ${this.config.tableName};`);
+          this.db.run(`DELETE FROM document_fts;`);
+          
+          // SQLite-Optimierungen
+          this.db.run('VACUUM;', (err) => {
+            if (err) {
+              this.log('error', 'Fehler beim Zurücksetzen der Datenbank:', err);
+              resolve({
+                success: false,
+                message: `Fehler beim Zurücksetzen der Datenbank: ${err.message}`,
+                error: err.message
+              });
+            } else {
+              resolve({
+                success: true,
+                message: `Datenbank erfolgreich zurückgesetzt`
+              });
+            }
+          });
+        });
+      } catch (error) {
+        this.log('error', 'Fehler beim Zurücksetzen der Datenbank:', error);
+        resolve({
+          success: false,
+          message: `Fehler beim Zurücksetzen der Datenbank: ${error.message}`,
+          error: error.message
+        });
+      }
+    });
   }
 
   /**
    * Gibt Statistiken zur Datenbank zurück
    */
   async getStats() {
-    try {
-      this.log('info', `Rufe Datenbankstatistiken ab...`);
-      
-      // Prüfe, ob Tabelle existiert
-      const tableExists = this.db.prepare(`
-        SELECT name FROM sqlite_master 
-        WHERE type='table' AND name=?;
-      `).get(this.config.tableName);
-      
-      if (!tableExists) {
-        return {
+    return new Promise((resolve, reject) => {
+      try {
+        this.log('info', `Rufe Datenbankstatistiken ab...`);
+        
+        // Prüfe, ob Tabelle existiert
+        this.db.get(`
+          SELECT name FROM sqlite_master 
+          WHERE type='table' AND name=?;
+        `, [this.config.tableName], (err, tableExists) => {
+          if (err) {
+            this.log('error', 'Fehler beim Abrufen der Statistiken:', err);
+            resolve({
+              exists: false,
+              count: 0,
+              error: err.message
+            });
+            return;
+          }
+          
+          if (!tableExists) {
+            resolve({
+              exists: false,
+              count: 0,
+              message: `Tabelle ${this.config.tableName} existiert nicht`
+            });
+            return;
+          }
+          
+          // Zähle Einträge
+          this.db.get(`
+            SELECT COUNT(*) as count FROM ${this.config.tableName};
+          `, (err, countResult) => {
+            if (err) {
+              this.log('error', 'Fehler beim Zählen der Einträge:', err);
+              resolve({
+                exists: true,
+                count: 0,
+                error: err.message
+              });
+              return;
+            }
+            
+            // Datenbankgröße ermitteln
+            try {
+              const dbSizeInBytes = fs.statSync(this.config.dbPath).size;
+              const dbSizeInMB = Math.round(dbSizeInBytes / (1024 * 1024) * 100) / 100;
+              
+              resolve({
+                exists: true,
+                count: countResult.count,
+                dimensions: this.config.dimensions,
+                model: this.config.embeddingModel,
+                dbSize: dbSizeInMB,
+                dbPath: this.config.dbPath,
+                createdAt: fs.statSync(this.config.dbPath).birthtime.toISOString()
+              });
+            } catch (fsError) {
+              this.log('error', 'Fehler beim Ermitteln der Dateigröße:', fsError);
+              resolve({
+                exists: true,
+                count: countResult.count,
+                dimensions: this.config.dimensions,
+                model: this.config.embeddingModel,
+                error: fsError.message
+              });
+            }
+          });
+        });
+      } catch (error) {
+        this.log('error', 'Fehler beim Abrufen der Statistiken:', error);
+        resolve({
           exists: false,
           count: 0,
-          message: `Tabelle ${this.config.tableName} existiert nicht`
-        };
+          error: error.message
+        });
       }
-      
-      // Zähle Einträge
-      const countResult = this.db.prepare(`
-        SELECT COUNT(*) as count FROM ${this.config.tableName};
-      `).get();
-      
-      // Datenbankgröße ermitteln
-      const dbSizeInBytes = fs.statSync(this.config.dbPath).size;
-      const dbSizeInMB = Math.round(dbSizeInBytes / (1024 * 1024) * 100) / 100;
-      
-      return {
-        exists: true,
-        count: countResult.count,
-        dimensions: this.config.dimensions,
-        model: this.config.embeddingModel,
-        dbSize: dbSizeInMB,
-        dbPath: this.config.dbPath,
-        createdAt: fs.statSync(this.config.dbPath).birthtime.toISOString()
-      };
-    } catch (error) {
-      this.log('error', 'Fehler beim Abrufen der Statistiken:', error);
-      return {
-        exists: false,
-        count: 0,
-        error: error.message
-      };
-    }
+    });
   }
   
   /**
@@ -454,8 +591,13 @@ class VectorDatabase {
    */
   close() {
     if (this.db) {
-      this.db.close();
-      this.log('info', 'Datenbankverbindung geschlossen');
+      this.db.close((err) => {
+        if (err) {
+          this.log('error', 'Fehler beim Schließen der Datenbankverbindung:', err);
+        } else {
+          this.log('info', 'Datenbankverbindung geschlossen');
+        }
+      });
     }
   }
 }
