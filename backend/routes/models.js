@@ -1,6 +1,6 @@
 // models.js - Route für Modellverwaltung und -informationen
 const express = require('express');
-const { Ollama } = require('node-ollama');
+const { Ollama } = require('ollama');
 const router = express.Router();
 
 // Ollama-Client initialisieren
