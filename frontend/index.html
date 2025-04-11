@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Chat App mit SQLite</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="app-title">
+                <h1>Local Chat App</h1>
+                <span class="app-subtitle">Ihre lokale Dokumenten-KI mit SQLite</span>
+            </div>
+            <div class="status-container">
+                <div class="status-item" id="ollama-status">
+                    <span class="status-label">Ollama:</span>
+                    <span class="status-badge" data-status="loading">
+                        <span class="status-icon"></span>
+                        <span class="status-text">Prüfe...</span>
+                    </span>
+                </div>
+                <div class="status-item" id="vectordb-status">
+                    <span class="status-label">SQLite:</span>
+                    <span class="status-badge" data-status="loading">
+                        <span class="status-icon"></span>
+                        <span class="status-text">Prüfe...</span>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <main class="chat-container">
+            <div class="messages" id="chat-messages">
+                <div class="message system">
+                    <div class="message-content">
+                        <p>Willkommen bei der Local Chat App! Sie können Fragen zu Ihren indizierten Dokumenten stellen oder allgemeine Anfragen formulieren.</p>
+                        <p>Wenn ich Informationen aus Ihren Dokumenten verwende, nenne ich die genauen Quellen.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sources-panel" id="sources-panel">
+                <div class="sources-header">
+                    <h3>Quellen</h3>
+                    <button class="close-sources" id="close-sources">×</button>
+                </div>
+                <div class="sources-content" id="sources-content">
+                    <p>Keine Quellen verfügbar.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="input-container">
+            <form id="chat-form">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="user-input" 
+                        placeholder="Stellen Sie eine Frage zu Ihren Dokumenten..." 
+                        rows="1" 
+                        autofocus
+                    ></textarea>
+                    <button type="submit" id="send-button" disabled>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </footer>
+    </div>
+
+    <script src="scripts/main.js"></script>
+</body>
+</html>
