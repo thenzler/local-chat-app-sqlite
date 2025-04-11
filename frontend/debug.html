@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Chat App mit SQLite - Debug Mode</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <style>
+        .debug-info {
+            background-color: #f0f0f0;
+            border-left: 3px solid #ff9800;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        
+        .debug-panel {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        
+        .debug-header {
+            background-color: #ff9800;
+            color: white;
+            padding: 5px 10px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: -20px;
+            margin-left: -20px;
+            margin-right: -20px;
+            border-radius: 5px 5px 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-header">DEBUG MODE</div>
+    
+    <div class="app-container">
+        <header class="app-header">
+            <div class="app-title">
+                <h1>Local Chat App - Debug</h1>
+                <span class="app-subtitle">Ihre lokale Dokumenten-KI mit SQLite</span>
+            </div>
+            <div class="status-container">
+                <div class="status-item" id="ollama-status">
+                    <span class="status-label">Ollama:</span>
+                    <span class="status-badge" data-status="loading">
+                        <span class="status-icon"></span>
+                        <span class="status-text">Prüfe...</span>
+                    </span>
+                </div>
+                <div class="status-item" id="vectordb-status">
+                    <span class="status-label">SQLite:</span>
+                    <span class="status-badge" data-status="loading">
+                        <span class="status-icon"></span>
+                        <span class="status-text">Prüfe...</span>
+                    </span>
+                </div>
+                <div class="header-actions">
+                    <a href="documents.html" class="button document-button">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Dokumente verwalten
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="chat-container">
+            <div class="messages" id="chat-messages">
+                <div class="message system">
+                    <div class="message-content">
+                        <p>Willkommen bei der Local Chat App! Sie können Fragen zu Ihren indizierten Dokumenten stellen oder allgemeine Anfragen formulieren.</p>
+                        <p>Wenn ich Informationen aus Ihren Dokumenten verwende, nenne ich die genauen Quellen.</p>
+                        <p class="debug-info">DEBUG MODE ACTIVE - Check console for detailed logs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sources-panel" id="sources-panel">
+                <div class="sources-header">
+                    <h3>Quellen</h3>
+                    <button class="close-sources" id="close-sources">×</button>
+                </div>
+                <div class="sources-content" id="sources-content">
+                    <p>Keine Quellen verfügbar.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="input-container">
+            <form id="chat-form">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="user-input" 
+                        placeholder="Stellen Sie eine Frage zu Ihren Dokumenten..." 
+                        rows="1" 
+                        autofocus
+                    ></textarea>
+                    <button type="submit" id="send-button" disabled>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </footer>
+    </div>
+
+    <div class="debug-panel">
+        <h3>Debug Controls</h3>
+        <button id="test-api-button">Test API Directly</button>
+        <div id="debug-log" style="max-height: 200px; overflow-y: auto; margin-top: 10px;"></div>
+    </div>
+
+    <script src="scripts/main-fixed.js"></script>
+    <script>
+        // Additional debug functionality
+        document.getElementById('test-api-button').addEventListener('click', async () => {
+            try {
+                console.log('Testing API directly from debug panel');
+                const debugLog = document.getElementById('debug-log');
+                
+                // Add log entry
+                const logEntry = document.createElement('div');
+                logEntry.textContent = `[${new Date().toISOString()}] Sending test request...`;
+                debugLog.appendChild(logEntry);
+                
+                const testMessage = 'This is a test message from the debug panel';
+                
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: testMessage })
+                });
+                
+                // Add log entry for response status
+                const statusEntry = document.createElement('div');
+                statusEntry.textContent = `[${new Date().toISOString()}] Response status: ${response.status}`;
+                debugLog.appendChild(statusEntry);
+                
+                const data = await response.json();
+                
+                // Add log entry for parsed data
+                const dataEntry = document.createElement('div');
+                dataEntry.textContent = `[${new Date().toISOString()}] Response received: ${data.reply ? 'Has reply' : 'No reply'}`;
+                debugLog.appendChild(dataEntry);
+                
+                if (data && data.reply) {
+                    const replyEntry = document.createElement('div');
+                    replyEntry.textContent = `[${new Date().toISOString()}] First 100 chars: ${data.reply.substring(0, 100)}...`;
+                    debugLog.appendChild(replyEntry);
+                }
+                
+                // Auto-scroll log
+                debugLog.scrollTop = debugLog.scrollHeight;
+            } catch (error) {
+                console.error('API test error:', error);
+                
+                // Add error log entry
+                const errorEntry = document.createElement('div');
+                errorEntry.textContent = `[${new Date().toISOString()}] ERROR: ${error.message}`;
+                errorEntry.style.color = 'red';
+                document.getElementById('debug-log').appendChild(errorEntry);
+            }
+        });
+    </script>
+</body>
+</html>
