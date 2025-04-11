@@ -2,11 +2,12 @@
   "name": "enhanced-local-chat-app",
   "version": "1.0.0",
   "description": "Eine lokale Chat-App mit LLM, SQLite-basierter Vektorsuche und Dokumentenverwaltung",
-  "main": "backend/server-fixed.js",
+  "main": "backend/server-fixed-v2.js",
   "scripts": {
-    "start": "node backend/server-fixed.js",
+    "start": "node backend/server-fixed-v2.js",
+    "start:legacy": "node backend/server-fixed.js",
     "index-docs": "node backend/document-indexer.js",
-    "dev": "nodemon backend/server-fixed.js",
+    "dev": "nodemon backend/server-fixed-v2.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
