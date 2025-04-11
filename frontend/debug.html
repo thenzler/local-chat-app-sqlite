@@ -1,186 +1,266 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Chat App mit SQLite - Debug Mode</title>
-    <link rel="stylesheet" href="styles/main.css">
-    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <title>Ollama Debug Console</title>
     <style>
-        .debug-info {
-            background-color: #f0f0f0;
-            border-left: 3px solid #ff9800;
-            padding: 10px;
-            margin: 10px 0;
-            font-family: monospace;
-            white-space: pre-wrap;
-            font-size: 12px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
         }
-        
-        .debug-panel {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: #f0f0f0;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            z-index: 1000;
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
         }
-        
-        .debug-header {
-            background-color: #ff9800;
+        button {
+            background-color: #4CAF50;
             color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #output {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            min-height: 200px;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
             padding: 5px 10px;
+            border-radius: 4px;
+            margin: 5px;
             font-weight: bold;
-            text-align: center;
-            margin-top: -20px;
-            margin-left: -20px;
-            margin-right: -20px;
-            border-radius: 5px 5px 0 0;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .warning {
+            background-color: #fcf8e3;
+            color: #8a6d3b;
+        }
+        .test-group {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .navbar a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="debug-header">DEBUG MODE</div>
+    <div class="navbar">
+        <a href="/">← Back to Chat</a>
+        <a href="/documents.html">Document Management</a>
+    </div>
+
+    <h1>Ollama Debug Console</h1>
     
-    <div class="app-container">
-        <header class="app-header">
-            <div class="app-title">
-                <h1>Local Chat App - Debug</h1>
-                <span class="app-subtitle">Ihre lokale Dokumenten-KI mit SQLite</span>
-            </div>
-            <div class="status-container">
-                <div class="status-item" id="ollama-status">
-                    <span class="status-label">Ollama:</span>
-                    <span class="status-badge" data-status="loading">
-                        <span class="status-icon"></span>
-                        <span class="status-text">Prüfe...</span>
-                    </span>
-                </div>
-                <div class="status-item" id="vectordb-status">
-                    <span class="status-label">SQLite:</span>
-                    <span class="status-badge" data-status="loading">
-                        <span class="status-icon"></span>
-                        <span class="status-text">Prüfe...</span>
-                    </span>
-                </div>
-                <div class="header-actions">
-                    <a href="documents.html" class="button document-button">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        Dokumente verwalten
-                    </a>
-                </div>
-            </div>
-        </header>
-
-        <main class="chat-container">
-            <div class="messages" id="chat-messages">
-                <div class="message system">
-                    <div class="message-content">
-                        <p>Willkommen bei der Local Chat App! Sie können Fragen zu Ihren indizierten Dokumenten stellen oder allgemeine Anfragen formulieren.</p>
-                        <p>Wenn ich Informationen aus Ihren Dokumenten verwende, nenne ich die genauen Quellen.</p>
-                        <p class="debug-info">DEBUG MODE ACTIVE - Check console for detailed logs</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sources-panel" id="sources-panel">
-                <div class="sources-header">
-                    <h3>Quellen</h3>
-                    <button class="close-sources" id="close-sources">×</button>
-                </div>
-                <div class="sources-content" id="sources-content">
-                    <p>Keine Quellen verfügbar.</p>
-                </div>
-            </div>
-        </main>
-
-        <footer class="input-container">
-            <form id="chat-form">
-                <div class="input-wrapper">
-                    <textarea 
-                        id="user-input" 
-                        placeholder="Stellen Sie eine Frage zu Ihren Dokumenten..." 
-                        rows="1" 
-                        autofocus
-                    ></textarea>
-                    <button type="submit" id="send-button" disabled>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                </div>
-            </form>
-        </footer>
+    <div class="test-group">
+        <h2>System Status</h2>
+        <button id="check-server">Check Server Status</button>
+        <button id="check-ollama">Check Ollama Connection</button>
+        <button id="check-vectordb">Check Vector Database</button>
+        <div id="status-output"></div>
     </div>
 
-    <div class="debug-panel">
-        <h3>Debug Controls</h3>
-        <button id="test-api-button">Test API Directly</button>
-        <div id="debug-log" style="max-height: 200px; overflow-y: auto; margin-top: 10px;"></div>
+    <div class="test-group">
+        <h2>Direct Ollama Test</h2>
+        <textarea id="test-prompt" rows="3">Say hello in German.</textarea>
+        <button id="test-ollama">Test Ollama</button>
     </div>
 
-    <script src="scripts/main-fixed.js"></script>
+    <div class="test-group">
+        <h2>Vector Search Test</h2>
+        <textarea id="search-query" rows="2">Test search query</textarea>
+        <button id="test-search">Test Search</button>
+    </div>
+
+    <h2>Output:</h2>
+    <div id="output">Results will appear here...</div>
+
     <script>
-        // Additional debug functionality
-        document.getElementById('test-api-button').addEventListener('click', async () => {
+        // Helper functions
+        function updateOutput(content, clear = true) {
+            const output = document.getElementById('output');
+            if (clear) {
+                output.innerHTML = '';
+            }
+            if (typeof content === 'object') {
+                output.innerHTML += '<pre>' + JSON.stringify(content, null, 2) + '</pre>';
+            } else {
+                output.innerHTML += content;
+            }
+        }
+
+        function addStatus(status, message) {
+            const statusOutput = document.getElementById('status-output');
+            const statusEl = document.createElement('div');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message;
+            statusOutput.appendChild(statusEl);
+        }
+
+        // Test server status
+        document.getElementById('check-server').addEventListener('click', async () => {
             try {
-                console.log('Testing API directly from debug panel');
-                const debugLog = document.getElementById('debug-log');
+                document.getElementById('status-output').innerHTML = '';
+                updateOutput('Checking server status...');
                 
-                // Add log entry
-                const logEntry = document.createElement('div');
-                logEntry.textContent = `[${new Date().toISOString()}] Sending test request...`;
-                debugLog.appendChild(logEntry);
+                const response = await fetch('/health');
+                const data = await response.json();
                 
-                const testMessage = 'This is a test message from the debug panel';
+                addStatus('success', 'Server is running correctly');
+                updateOutput(data);
+            } catch (error) {
+                addStatus('error', 'Server connection failed');
+                updateOutput(`Error: ${error.message}`);
+            }
+        });
+
+        // Check Ollama connection
+        document.getElementById('check-ollama').addEventListener('click', async () => {
+            try {
+                document.getElementById('status-output').innerHTML = '';
+                updateOutput('Checking Ollama connection...');
                 
-                const response = await fetch('/api/chat', {
+                const response = await fetch('/api/check-ollama');
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    addStatus('success', `Ollama connected: ${data.models.length} models available`);
+                } else {
+                    addStatus('error', data.message || 'Ollama connection failed');
+                }
+                
+                updateOutput(data);
+            } catch (error) {
+                addStatus('error', 'Ollama connection failed');
+                updateOutput(`Error: ${error.message}`);
+            }
+        });
+
+        // Check Vector DB
+        document.getElementById('check-vectordb').addEventListener('click', async () => {
+            try {
+                document.getElementById('status-output').innerHTML = '';
+                updateOutput('Checking Vector Database...');
+                
+                const response = await fetch('/api/check-vectordb');
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    addStatus('success', `Vector DB ready: ${data.count} documents indexed`);
+                } else if (data.status === 'warning') {
+                    addStatus('warning', data.message || 'Vector DB has issues');
+                } else {
+                    addStatus('error', data.message || 'Vector DB error');
+                }
+                
+                updateOutput(data);
+            } catch (error) {
+                addStatus('error', 'Vector DB check failed');
+                updateOutput(`Error: ${error.message}`);
+            }
+        });
+
+        // Test Ollama directly
+        document.getElementById('test-ollama').addEventListener('click', async () => {
+            try {
+                const prompt = document.getElementById('test-prompt').value.trim();
+                if (!prompt) {
+                    updateOutput('Please enter a prompt first');
+                    return;
+                }
+                
+                updateOutput('Sending test prompt to Ollama...');
+                
+                const response = await fetch('/api/test-ollama', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: testMessage })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
                 });
-                
-                // Add log entry for response status
-                const statusEntry = document.createElement('div');
-                statusEntry.textContent = `[${new Date().toISOString()}] Response status: ${response.status}`;
-                debugLog.appendChild(statusEntry);
                 
                 const data = await response.json();
                 
-                // Add log entry for parsed data
-                const dataEntry = document.createElement('div');
-                dataEntry.textContent = `[${new Date().toISOString()}] Response received: ${data.reply ? 'Has reply' : 'No reply'}`;
-                debugLog.appendChild(dataEntry);
-                
-                if (data && data.reply) {
-                    const replyEntry = document.createElement('div');
-                    replyEntry.textContent = `[${new Date().toISOString()}] First 100 chars: ${data.reply.substring(0, 100)}...`;
-                    debugLog.appendChild(replyEntry);
+                if (data.success) {
+                    updateOutput('<div class="status success">Test successful!</div>');
+                    updateOutput('<h3>Ollama Response:</h3>', false);
+                    updateOutput(`<div style="white-space: pre-wrap;">${data.response}</div>`, false);
+                } else {
+                    updateOutput('<div class="status error">Test failed!</div>');
+                    updateOutput(`<p>Error: ${data.error}</p>`, false);
                 }
-                
-                // Auto-scroll log
-                debugLog.scrollTop = debugLog.scrollHeight;
             } catch (error) {
-                console.error('API test error:', error);
-                
-                // Add error log entry
-                const errorEntry = document.createElement('div');
-                errorEntry.textContent = `[${new Date().toISOString()}] ERROR: ${error.message}`;
-                errorEntry.style.color = 'red';
-                document.getElementById('debug-log').appendChild(errorEntry);
+                updateOutput('<div class="status error">Test failed!</div>');
+                updateOutput(`<p>Error: ${error.message}</p>`, false);
             }
         });
+
+        // Test Vector Search
+        document.getElementById('test-search').addEventListener('click', async () => {
+            try {
+                const query = document.getElementById('search-query').value.trim();
+                if (!query) {
+                    updateOutput('Please enter a search query first');
+                    return;
+                }
+                
+                updateOutput('Searching documents...');
+                
+                const response = await fetch(`/api/test-search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.documentCount > 0) {
+                    updateOutput(`<div class="status success">Found ${data.documentCount} relevant documents</div>`);
+                } else {
+                    updateOutput('<div class="status warning">No documents found matching the query</div>');
+                }
+                
+                updateOutput(data, false);
+            } catch (error) {
+                updateOutput('<div class="status error">Search failed!</div>');
+                updateOutput(`<p>Error: ${error.message}</p>`, false);
+            }
+        });
+
+        // Run initial server check
+        document.getElementById('check-server').click();
     </script>
 </body>
 </html>
