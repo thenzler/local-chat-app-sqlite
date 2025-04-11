@@ -1,0 +1,39 @@
+{
+  "name": "local-chat-app-sqlite",
+  "version": "1.0.0",
+  "description": "Eine lokale Chat-App mit LLM und SQLite-basierter Vektorsuche",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "index-docs": "node backend/document-indexer.js",
+    "dev": "nodemon backend/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chat",
+    "llm",
+    "ollama",
+    "sqlite",
+    "vector-search",
+    "embeddings",
+    "local-ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@xenova/transformers": "^2.8.0",
+    "better-sqlite3": "^8.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mammoth": "^1.6.0",
+    "node-ollama": "^1.0.4",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
