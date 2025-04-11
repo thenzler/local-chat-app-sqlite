@@ -49,10 +49,16 @@ npm start
 
 If you encounter issues with messages not displaying:
 
-1. Check the browser console (F12) for errors
-2. Use the **Debug Panel** button in the top-left corner of the screen
-   - Click the "Test Ollama" button to check direct communication
-   - Alt+D or D key also toggles the debug panel
+1. **Use the dedicated debug page**:
+   - Go to http://localhost:3000/debug.html
+   - This provides direct access to test Ollama connectivity and search functionality
+   - You can easily check if Ollama is responding correctly
+   
+2. Common issues:
+   - Make sure Ollama is running (check with the debug console)
+   - Verify your model is downloaded (mistral is the default)
+   - Check the browser console (F12) for JavaScript errors
+
 3. If Ollama is running but not responding, try restarting it
 
 ## Document Management
