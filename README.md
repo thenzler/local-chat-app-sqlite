@@ -33,28 +33,7 @@ OLLAMA_MODEL=mistral
 PORT=3000
 ```
 
-## Important: Fixing the "fetch is not a function" Error
-
-If you encounter the error `TypeError: fetch is not a function` when connecting to Ollama, use the fixed server implementation:
-
-1. The repository includes a custom Ollama client implementation (`backend/ollama-client.js`) that uses native fetch.
-2. Use `backend/server-fixed.js` instead of `server.js` to run the application:
-
-```bash
-# Instead of the default npm start
-node backend/server-fixed.js
-```
-
-Or update your package.json to use the fixed server:
-```json
-"scripts": {
-  "start": "node backend/server-fixed.js",
-  "index-docs": "node backend/document-indexer.js",
-  "dev": "nodemon backend/server-fixed.js"
-}
-```
-
-## Usage
+## Quick Start
 
 1. Start the server:
 ```
@@ -62,8 +41,17 @@ npm start
 ```
 
 2. Open your browser and go to `http://localhost:3000`
+   - The application automatically uses the enhanced fixed frontend
 
-3. Upload documents through the interface and start chatting with your documents!
+3. Upload documents and start chatting!
+
+## Troubleshooting
+
+If you encounter issues with messages not displaying:
+
+1. Check the browser console (F12) for errors
+2. Use Alt+D to bring up the debug panel
+3. Click "Test Ollama" to check direct communication
 
 ## Document Management
 
