@@ -25,12 +25,22 @@ class VectorDatabase {
 
     // Embedding-Pipeline (wird lazy initialisiert)
     this.embedder = null;
+    
+    // Track initialization status
+    this._initialized = false;
 
     // Logging-Funktion
     this.log = function(level, ...args) {
       const timestamp = new Date().toISOString();
       console[level](`[${timestamp}] [${level.toUpperCase()}] [VectorDB]`, ...args);
     };
+  }
+
+  /**
+   * Check if the database is initialized
+   */
+  isInitialized() {
+    return this._initialized && this.db !== null;
   }
 
   /**
@@ -67,6 +77,7 @@ class VectorDatabase {
               .then(async () => {
                 // Embedding-Pipeline initialisieren
                 await this.getEmbedder();
+                this._initialized = true;
                 this.log('info', 'VectorDB erfolgreich initialisiert');
                 resolve(true);
               })
