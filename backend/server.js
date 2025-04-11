@@ -1,7 +1,7 @@
 // Import required dependencies
 const express = require('express');
 const cors = require('cors');
-const { Ollama } = require('node-ollama');
+const { Ollama } = require('ollama');
 const fs = require('fs').promises;
 const path = require('path');
 require('dotenv').config();
