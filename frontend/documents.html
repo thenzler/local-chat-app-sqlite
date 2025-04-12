@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dokumentenverwaltung - Local Chat App mit SQLite</title>
+    <title>Document Management - Project Susi</title>
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/documents.css">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
@@ -12,18 +12,18 @@
     <div class="app-container">
         <header class="app-header">
             <div class="app-title">
-                <h1>Local Chat App</h1>
-                <span class="app-subtitle">Dokumentenverwaltung</span>
+                <h1>Project Susi</h1>
+                <span class="app-subtitle">Document Management</span>
             </div>
             <div class="header-actions">
-                <a href="index.html" class="button">Zum Chat</a>
+                <a href="index.html" class="button">Back to Chat</a>
             </div>
         </header>
 
         <main class="documents-container">
             <div class="documents-panel">
                 <div class="documents-header">
-                    <h2>Dokumente</h2>
+                    <h2>Documents</h2>
                     <div class="documents-actions">
                         <button id="upload-button" class="primary-button">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -31,19 +31,19 @@
                                 <polyline points="17 8 12 3 7 8"></polyline>
                                 <line x1="12" y1="3" x2="12" y2="15"></line>
                             </svg>
-                            Dokument hochladen
+                            Upload Document
                         </button>
                     </div>
                 </div>
                 
                 <div class="documents-filter">
                     <div class="search-container">
-                        <input type="text" id="document-search" placeholder="Dokumente durchsuchen...">
+                        <input type="text" id="document-search" placeholder="Search documents...">
                         <button id="search-clear" class="clear-button" style="display: none;">×</button>
                     </div>
                     <div class="filter-container">
                         <select id="category-filter">
-                            <option value="">Alle Kategorien</option>
+                            <option value="">All Categories</option>
                         </select>
                     </div>
                 </div>
@@ -51,7 +51,7 @@
                 <div class="documents-list" id="documents-list">
                     <div class="loading-placeholder">
                         <div class="loading-spinner"></div>
-                        <span>Dokumente werden geladen...</span>
+                        <span>Loading documents...</span>
                     </div>
                 </div>
             </div>
@@ -65,8 +65,8 @@
                         <line x1="16" y1="17" x2="8" y2="17"></line>
                         <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
-                    <h3>Kein Dokument ausgewählt</h3>
-                    <p>Wählen Sie ein Dokument aus der Liste aus, um Details anzuzeigen.</p>
+                    <h3>No document selected</h3>
+                    <p>Select a document from the list to view details.</p>
                 </div>
             </div>
         </main>
@@ -76,47 +76,47 @@
     <div class="modal" id="upload-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Dokument hochladen</h3>
+                <h3>Upload Document</h3>
                 <button class="close-button" id="close-upload-modal">×</button>
             </div>
             <div class="modal-body">
                 <form id="upload-form">
                     <div class="form-group">
-                        <label for="document-file">Datei auswählen</label>
+                        <label for="document-file">Select File</label>
                         <div class="file-input-container">
                             <input type="file" id="document-file" accept=".pdf,.docx,.txt,.md,.html" required>
                             <div class="file-preview" id="file-preview">
-                                <span>Keine Datei ausgewählt</span>
+                                <span>No file selected</span>
                             </div>
                         </div>
                         <div class="file-restrictions">
-                            Unterstützte Formate: PDF, DOCX, TXT, MD, HTML (max. 50 MB)
+                            Supported formats: PDF, DOCX, TXT, MD, HTML (max. 50 MB)
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="document-category">Kategorie</label>
+                        <label for="document-category">Category</label>
                         <div class="category-input-container">
                             <select id="document-category">
-                                <option value="Uncategorized">Unkategorisiert</option>
+                                <option value="Uncategorized">Uncategorized</option>
                             </select>
-                            <button type="button" id="add-category-button" class="secondary-button">Neue Kategorie</button>
+                            <button type="button" id="add-category-button" class="secondary-button">New Category</button>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="document-tags">Tags (durch Komma getrennt)</label>
-                        <input type="text" id="document-tags" placeholder="z.B. wichtig, projekt, 2025">
+                        <label for="document-tags">Tags (comma separated)</label>
+                        <input type="text" id="document-tags" placeholder="e.g. important, project, 2025">
                     </div>
                     
                     <div class="form-group">
-                        <label for="document-description">Beschreibung (optional)</label>
-                        <textarea id="document-description" rows="3" placeholder="Geben Sie eine kurze Beschreibung des Dokuments ein..."></textarea>
+                        <label for="document-description">Description (optional)</label>
+                        <textarea id="document-description" rows="3" placeholder="Enter a brief description of the document..."></textarea>
                     </div>
                     
                     <div class="form-actions">
-                        <button type="button" id="cancel-upload" class="secondary-button">Abbrechen</button>
-                        <button type="submit" id="submit-upload" class="primary-button">Hochladen</button>
+                        <button type="button" id="cancel-upload" class="secondary-button">Cancel</button>
+                        <button type="submit" id="submit-upload" class="primary-button">Upload</button>
                     </div>
                 </form>
             </div>
@@ -127,19 +127,19 @@
     <div class="modal" id="category-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Neue Kategorie</h3>
+                <h3>New Category</h3>
                 <button class="close-button" id="close-category-modal">×</button>
             </div>
             <div class="modal-body">
                 <form id="category-form">
                     <div class="form-group">
-                        <label for="category-name">Kategoriename</label>
-                        <input type="text" id="category-name" placeholder="Geben Sie einen Kategorienamen ein" required>
+                        <label for="category-name">Category Name</label>
+                        <input type="text" id="category-name" placeholder="Enter a category name" required>
                     </div>
                     
                     <div class="form-actions">
-                        <button type="button" id="cancel-category" class="secondary-button">Abbrechen</button>
-                        <button type="submit" id="submit-category" class="primary-button">Hinzufügen</button>
+                        <button type="button" id="cancel-category" class="secondary-button">Cancel</button>
+                        <button type="submit" id="submit-category" class="primary-button">Add</button>
                     </div>
                 </form>
             </div>
@@ -150,15 +150,15 @@
     <div class="modal" id="confirm-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="confirm-title">Bestätigen</h3>
+                <h3 id="confirm-title">Confirm</h3>
                 <button class="close-button" id="close-confirm-modal">×</button>
             </div>
             <div class="modal-body">
-                <p id="confirm-message">Sind Sie sicher?</p>
+                <p id="confirm-message">Are you sure?</p>
                 
                 <div class="form-actions">
-                    <button type="button" id="cancel-confirm" class="secondary-button">Abbrechen</button>
-                    <button type="button" id="submit-confirm" class="danger-button">Bestätigen</button>
+                    <button type="button" id="cancel-confirm" class="secondary-button">Cancel</button>
+                    <button type="button" id="submit-confirm" class="danger-button">Confirm</button>
                 </div>
             </div>
         </div>
@@ -167,7 +167,7 @@
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
-        <div class="loading-message">Vorgang wird ausgeführt...</div>
+        <div class="loading-message">Processing...</div>
     </div>
 
     <script src="scripts/documents.js"></script>
