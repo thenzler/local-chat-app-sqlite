@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Ollama Chat</title>
+    <title>Project Susi - Simple Chat</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -61,7 +61,7 @@
     </style>
 </head>
 <body>
-    <h1>Simple Ollama Chat</h1>
+    <h1>Project Susi - Simple Chat</h1>
     <p>This is a stripped-down chat interface that talks directly to Ollama.</p>
     
     <div class="status" id="status">Checking connection...</div>
@@ -171,7 +171,7 @@
         window.addEventListener('load', async () => {
             const ollamaReady = await checkOllama();
             if (ollamaReady) {
-                addMessage('Hello! How can I help you today?', 'bot');
+                addMessage('Hello! Welcome to Project Susi. How can I help you today?', 'bot');
             } else {
                 addMessage('Error connecting to Ollama. Please check if it is running.', 'bot');
             }
