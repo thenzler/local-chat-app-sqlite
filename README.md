@@ -1,6 +1,6 @@
-# Local Chat App with SQLite Vector Search
+# Project Susi
 
-This application provides an interface for chatting with local language models via Ollama while using a SQLite-based vector database for document search and retrieval.
+A local document chat application with SQLite-based vector search for question answering.
 
 ## Features
 
@@ -29,7 +29,7 @@ npm install
 4. Create a `.env` file in the root directory with the following content:
 ```
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=mistral
+OLLAMA_MODEL=phi3-mini
 PORT=3000
 ```
 
@@ -41,7 +41,7 @@ npm start
 ```
 
 2. Open your browser and go to `http://localhost:3000`
-   - The application automatically uses the enhanced fixed frontend
+   - The application automatically uses the enhanced interface with document management
 
 3. Upload documents and start chatting!
 
@@ -56,7 +56,7 @@ If you encounter issues with messages not displaying:
    
 2. Common issues:
    - Make sure Ollama is running (check with the debug console)
-   - Verify your model is downloaded (mistral is the default)
+   - Verify your model is downloaded (phi3-mini is recommended)
    - Check the browser console (F12) for JavaScript errors
 
 3. If Ollama is running but not responding, try restarting it
@@ -78,7 +78,7 @@ You can configure the application further by setting these environment variables
 ```
 # Ollama Configuration
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=mistral
+OLLAMA_MODEL=phi3-mini
 
 # Server Configuration
 PORT=3000
