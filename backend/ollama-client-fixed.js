@@ -1,6 +1,5 @@
 /**
- * Improved Ollama client implementation with robust error handling
- * Fixes the JSON parsing issues that can occur with Ollama responses
+ * Improved Ollama client implementation that correctly handles streaming responses
  */
 
 class OllamaClient {
@@ -46,6 +45,11 @@ class OllamaClient {
       // For debugging, log the beginning of the response
       console.log(`Raw response from ${url} (first 200 chars): ${rawText.substring(0, 200)}...`);
       
+      // If this is a streaming response with multiple JSON objects
+      if (endpoint === '/api/chat' && rawText.includes('{"model":') && rawText.includes('"done":')) {
+        return this._handleStreamingResponse(rawText);
+      }
+      
       // Robust parsing with error recovery
       let responseData;
       try {
@@ -58,13 +62,13 @@ class OllamaClient {
         // 1. Try stripping out any non-JSON content at the beginning or end
         try {
           // Look for a JSON object pattern
-          const jsonMatch = rawText.match(/\\{.*\\}/s);
+          const jsonMatch = rawText.match(/\{.*\}/s);
           if (jsonMatch) {
             console.log("Found JSON object in response, attempting to parse that portion");
             responseData = JSON.parse(jsonMatch[0]);
           } else {
             // 2. Handle streaming responses (which may have multiple JSON objects)
-            const jsonLines = rawText.split('\\n').filter(line => line.trim().startsWith('{'));
+            const jsonLines = rawText.split('\n').filter(line => line.trim().startsWith('{'));
             if (jsonLines.length > 0) {
               console.log("Found JSON lines in response, parsing the last one");
               responseData = JSON.parse(jsonLines[jsonLines.length - 1]);
@@ -98,6 +102,52 @@ class OllamaClient {
   }
 
   /**
+   * Handle streaming responses from Ollama chat API
+   */
+  _handleStreamingResponse(rawText) {
+    try {
+      console.log("Processing streaming response...");
+      
+      // The response is a series of JSON objects, one per line
+      const lines = rawText.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        throw new Error("Empty response from Ollama");
+      }
+      
+      // Combine all message contents to get the full message
+      let fullContent = '';
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.message && obj.message.content) {
+            fullContent += obj.message.content;
+          }
+        } catch (e) {
+          console.warn(`Error parsing line: ${line.substring(0, 50)}...`, e);
+        }
+      }
+      
+      console.log("Combined full message:", fullContent);
+      
+      return {
+        message: {
+          role: 'assistant',
+          content: fullContent || "Sorry, I couldn't generate a response."
+        }
+      };
+    } catch (error) {
+      console.error("Error handling streaming response:", error);
+      return {
+        message: {
+          role: 'assistant',
+          content: `Error processing response: ${error.message}`
+        }
+      };
+    }
+  }
+
+  /**
    * List available models
    */
   async list() {
@@ -112,7 +162,10 @@ class OllamaClient {
     const requestBody = { 
       model, 
       messages,
-      options
+      options: {
+        ...options,
+        stream: false // Force non-streaming mode
+      }
     };
 
     try {
@@ -175,6 +228,7 @@ class OllamaClient {
     const requestBody = { 
       model, 
       prompt,
+      stream: false, // Force non-streaming 
       ...options
     };
 
