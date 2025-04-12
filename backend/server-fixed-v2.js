@@ -21,9 +21,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Redirect root to fixed version
+// Redirect root to simple chat interface
 app.get('/', (req, res) => {
-  res.redirect('/index-fixed.html');
+  res.redirect('/simple-chat.html');
 });
 
 // Request logging middleware
