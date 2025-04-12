@@ -1,90 +1,181 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Chat App mit SQLite</title>
-    <link rel="stylesheet" href="styles/main.css">
-    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <title>Simple Ollama Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #chat-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .user {
+            background-color: #e6f7ff;
+            text-align: right;
+            margin-left: 20%;
+        }
+        .bot {
+            background-color: #f2f2f2;
+            margin-right: 20%;
+        }
+        .input-area {
+            display: flex;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #send-button {
+            padding: 8px 16px;
+            margin-left: 8px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background-color: #dff0d8; color: #3c763d; }
+        .error { background-color: #f2dede; color: #a94442; }
+        .loading { background-color: #fcf8e3; color: #8a6d3b; }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="app-title">
-                <h1>Local Chat App</h1>
-                <span class="app-subtitle">Ihre lokale Dokumenten-KI mit SQLite</span>
-            </div>
-            <div class="status-container">
-                <div class="status-item" id="ollama-status">
-                    <span class="status-label">Ollama:</span>
-                    <span class="status-badge" data-status="loading">
-                        <span class="status-icon"></span>
-                        <span class="status-text">Prüfe...</span>
-                    </span>
-                </div>
-                <div class="status-item" id="vectordb-status">
-                    <span class="status-label">SQLite:</span>
-                    <span class="status-badge" data-status="loading">
-                        <span class="status-icon"></span>
-                        <span class="status-text">Prüfe...</span>
-                    </span>
-                </div>
-                <div class="header-actions">
-                    <a href="documents.html" class="button document-button">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        Dokumente verwalten
-                    </a>
-                </div>
-            </div>
-        </header>
-
-        <main class="chat-container">
-            <div class="messages" id="chat-messages">
-                <div class="message system">
-                    <div class="message-content">
-                        <p>Willkommen bei der Local Chat App! Sie können Fragen zu Ihren indizierten Dokumenten stellen oder allgemeine Anfragen formulieren.</p>
-                        <p>Wenn ich Informationen aus Ihren Dokumenten verwende, nenne ich die genauen Quellen.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sources-panel" id="sources-panel">
-                <div class="sources-header">
-                    <h3>Quellen</h3>
-                    <button class="close-sources" id="close-sources">×</button>
-                </div>
-                <div class="sources-content" id="sources-content">
-                    <p>Keine Quellen verfügbar.</p>
-                </div>
-            </div>
-        </main>
-
-        <footer class="input-container">
-            <form id="chat-form">
-                <div class="input-wrapper">
-                    <textarea 
-                        id="user-input" 
-                        placeholder="Stellen Sie eine Frage zu Ihren Dokumenten..." 
-                        rows="1" 
-                        autofocus
-                    ></textarea>
-                    <button type="submit" id="send-button" disabled>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                </div>
-            </form>
-        </footer>
+    <h1>Simple Ollama Chat</h1>
+    <p>This is a stripped-down chat interface that talks directly to Ollama.</p>
+    
+    <div class="status" id="status">Checking connection...</div>
+    
+    <div id="chat-container"></div>
+    
+    <div class="input-area">
+        <input type="text" id="message-input" placeholder="Type your message here...">
+        <button id="send-button">Send</button>
     </div>
 
-    <script src="scripts/main.js"></script>
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const statusElement = document.getElementById('status');
+        
+        // Check if Ollama is running
+        async function checkOllama() {
+            try {
+                statusElement.className = 'status loading';
+                statusElement.textContent = 'Checking Ollama connection...';
+                
+                const response = await fetch('/api/check-ollama');
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    statusElement.className = 'status success';
+                    statusElement.textContent = `Ollama connected! Using model: ${data.recommended}`;
+                    return true;
+                } else {
+                    statusElement.className = 'status error';
+                    statusElement.textContent = data.message || 'Ollama is not responding.';
+                    return false;
+                }
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = `Connection error: ${error.message}`;
+                return false;
+            }
+        }
+        
+        // Add a message to the chat
+        function addMessage(text, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${sender}`;
+            messageElement.textContent = text;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Send message to Ollama
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            messageInput.value = '';
+            
+            // Disable input while waiting for response
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            try {
+                // Send the message to Ollama
+                const response = await fetch('/api/test-ollama', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Add bot response to chat
+                    addMessage(data.response, 'bot');
+                } else {
+                    // Handle error
+                    addMessage(`Error: ${data.error || 'Failed to get response'}`, 'bot');
+                    statusElement.className = 'status error';
+                    statusElement.textContent = `Error: ${data.error || 'Failed to get response'}`;
+                }
+            } catch (error) {
+                // Handle network error
+                addMessage(`Network error: ${error.message}`, 'bot');
+                statusElement.className = 'status error';
+                statusElement.textContent = `Network error: ${error.message}`;
+            } finally {
+                // Re-enable input
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+        
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Initialize
+        window.addEventListener('load', async () => {
+            const ollamaReady = await checkOllama();
+            if (ollamaReady) {
+                addMessage('Hello! How can I help you today?', 'bot');
+            } else {
+                addMessage('Error connecting to Ollama. Please check if it is running.', 'bot');
+            }
+        });
+    </script>
 </body>
 </html>
