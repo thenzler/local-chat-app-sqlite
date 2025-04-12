@@ -1,7 +1,7 @@
 {
-  "name": "enhanced-local-chat-app",
+  "name": "project-susi",
   "version": "1.0.0",
-  "description": "Eine lokale Chat-App mit LLM, SQLite-basierter Vektorsuche und Dokumentenverwaltung",
+  "description": "Project Susi - A local document chat system with SQLite vector search",
   "main": "backend/server-fixed-v2.js",
   "scripts": {
     "start": "node backend/server-fixed-v2.js",
